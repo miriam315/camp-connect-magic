@@ -1,8 +1,28 @@
-import type { Child, Volunteer, Language, MedicalLevel } from "./types";
+import type { Dataset, Mapping, Parameter } from "./types";
+
+/**
+ * Default parameter definitions, demonstrated for the camp use-case.
+ * The user can edit / add / remove these freely in the Settings tab.
+ */
+export const defaultParameters: Parameter[] = [
+  { id: "p-name", name: "שם", type: "name", weight: 0 },
+  { id: "p-medical", name: "רמה רפואית", type: "gte", weight: 10 },
+  { id: "p-language", name: "שפה", type: "categorical", weight: 8 },
+  { id: "p-city", name: "עיר", type: "categorical", weight: 6 },
+  { id: "p-age", name: "גיל", type: "numeric", weight: 4 },
+];
+
+/** Default mapping for the mock data set — columns share the same Hebrew names. */
+export const defaultMapping: Mapping = {
+  "p-name": { childCol: "שם", volunteerCol: "שם" },
+  "p-medical": { childCol: "רמה רפואית", volunteerCol: "רמה רפואית" },
+  "p-language": { childCol: "שפה", volunteerCol: "שפה" },
+  "p-city": { childCol: "עיר", volunteerCol: "עיר" },
+  "p-age": { childCol: "גיל", volunteerCol: "גיל" },
+};
 
 const cities = ["תל אביב", "ירושלים", "חיפה", "באר שבע", "נתניה", "ראשון לציון", "פתח תקווה", "אשדוד"];
-const languages: Language[] = ["עברית", "ערבית", "אנגלית", "רוסית", "צרפתית"];
-const medical: MedicalLevel[] = ["none", "low", "medium", "high"];
+const languages = ["עברית", "ערבית", "אנגלית", "רוסית", "צרפתית"];
 
 const childNames = [
   "נועם לוי", "אדם כהן", "יעל מזרחי", "איתי בר", "מאיה פרץ",
@@ -18,34 +38,30 @@ const volunteerNames = [
   "יעל סגל", "אייל ניר", "דנה פלד", "איתמר בלוך", "נועה ארז",
 ];
 
-function pick<T>(arr: T[], i: number): T {
-  return arr[i % arr.length];
+const pick = <T,>(arr: T[], i: number) => arr[i % arr.length];
+
+export function generateMockChildren(): Dataset {
+  const columns = ["שם", "גיל", "עיר", "שפה", "רמה רפואית", "הערות"];
+  const rows = childNames.map((name, i) => ({
+    "שם": name,
+    "גיל": String(6 + (i % 12)),
+    "עיר": pick(cities, i * 3),
+    "שפה": pick(languages, i * 2),
+    "רמה רפואית": String(i % 4),
+    "הערות": i % 3 === 0 ? "אוהב מוזיקה" : "רגיש לחושים",
+  }));
+  return { columns, rows };
 }
 
-export function generateMockChildren(): Child[] {
-  return childNames.map((name, i) => ({
-    id: `c${i + 1}`,
-    name,
-    age: 6 + (i % 12),
-    city: pick(cities, i * 3),
-    language: pick(languages, i * 2),
-    medicalLevel: pick(medical, i + 1),
-    notes: i % 4 === 0 ? "זקוק לסביבה רגועה" : i % 3 === 0 ? "אוהב מוזיקה" : "רגיש לחושים",
-    preferredGender: i % 5 === 0 ? "female" : i % 7 === 0 ? "male" : "any",
+export function generateMockVolunteers(): Dataset {
+  const columns = ["שם", "גיל", "עיר", "שפה", "רמה רפואית", "שנות ניסיון"];
+  const rows = volunteerNames.map((name, i) => ({
+    "שם": name,
+    "גיל": String(18 + (i % 25)),
+    "עיר": pick(cities, i * 2 + 1),
+    "שפה": pick(languages, i),
+    "רמה רפואית": String((i + 1) % 4),
+    "שנות ניסיון": String(i % 6),
   }));
-}
-
-export function generateMockVolunteers(): Volunteer[] {
-  return volunteerNames.map((name, i) => ({
-    id: `v${i + 1}`,
-    name,
-    age: 18 + (i % 25),
-    city: pick(cities, i * 2 + 1),
-    languages: i % 3 === 0
-      ? [pick(languages, i), pick(languages, i + 1)]
-      : [pick(languages, i)],
-    medicalExperience: pick(medical, i),
-    gender: i % 2 === 0 ? "female" : "male",
-    experienceYears: i % 6,
-  }));
+  return { columns, rows };
 }

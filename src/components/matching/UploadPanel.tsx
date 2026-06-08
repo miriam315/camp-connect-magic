@@ -1,61 +1,62 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Upload, FileSpreadsheet, Download, CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Download, FileSpreadsheet, Upload } from "lucide-react";
 import { toast } from "sonner";
-import type { Child, Volunteer } from "@/lib/matching/types";
+import { useAppStore } from "@/lib/matching/store";
 import {
-  parseChildrenFile,
-  parseVolunteersFile,
-  downloadChildrenTemplate,
-  downloadVolunteersTemplate,
+  downloadExampleChildrenCsv,
+  downloadExampleVolunteersCsv,
+  parseFileToDataset,
 } from "@/lib/matching/parse";
+import { MappingPanel } from "./MappingPanel";
 
-interface Props {
-  childrenCount: number;
-  volunteersCount: number;
-  onChildren: (c: Child[]) => void;
-  onVolunteers: (v: Volunteer[]) => void;
-  onResetMock: () => void;
-}
+export function UploadPanel() {
+  const childDS = useAppStore((s) => s.childDS);
+  const volunteerDS = useAppStore((s) => s.volunteerDS);
+  const setChildDataset = useAppStore((s) => s.setChildDataset);
+  const setVolunteerDataset = useAppStore((s) => s.setVolunteerDataset);
+  const loadMockData = useAppStore((s) => s.loadMockData);
 
-export function UploadPanel({ childrenCount, volunteersCount, onChildren, onVolunteers, onResetMock }: Props) {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="rounded-2xl border border-border bg-card p-6">
         <h2 className="text-lg font-bold text-foreground">טעינת נתונים</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          העלו קובץ Excel או CSV של הילדים והמתנדבים. ניתן להוריד תבנית מוכנה למילוי.
+          העלו קובץ CSV או Excel. אין צורך בשמות עמודות קבועים — לאחר ההעלאה תוכלו למפות כל עמודה לקריטריון.
         </p>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <DropZone
-            title="רשימת ילדים"
-            description="עמודות: שם, גיל, עיר, שפה, רמה רפואית, מין מועדף, הערות"
-            currentCount={childrenCount}
-            onTemplate={downloadChildrenTemplate}
+            title="קובץ ילדים"
+            columnsCount={childDS.columns.length}
+            rowsCount={childDS.rows.length}
+            onExample={downloadExampleChildrenCsv}
             onFile={async (file) => {
               try {
-                const data = await parseChildrenFile(file);
-                if (!data.length) throw new Error("הקובץ ריק");
-                onChildren(data);
-                toast.success(`נטענו ${data.length} ילדים`);
+                const ds = await parseFileToDataset(file);
+                if (!ds.rows.length) throw new Error("הקובץ ריק");
+                setChildDataset(ds);
+                toast.success(`נטענו ${ds.rows.length} ילדים`, {
+                  description: "עברו למיפוי העמודות בהמשך העמוד.",
+                });
               } catch (e) {
                 toast.error("שגיאה בטעינת הקובץ", { description: String((e as Error).message) });
               }
             }}
           />
-
           <DropZone
-            title="רשימת מתנדבים"
-            description="עמודות: שם, גיל, עיר, שפות, ניסיון רפואי, מין, שנות ניסיון"
-            currentCount={volunteersCount}
-            onTemplate={downloadVolunteersTemplate}
+            title="קובץ מתנדבים"
+            columnsCount={volunteerDS.columns.length}
+            rowsCount={volunteerDS.rows.length}
+            onExample={downloadExampleVolunteersCsv}
             onFile={async (file) => {
               try {
-                const data = await parseVolunteersFile(file);
-                if (!data.length) throw new Error("הקובץ ריק");
-                onVolunteers(data);
-                toast.success(`נטענו ${data.length} מתנדבים`);
+                const ds = await parseFileToDataset(file);
+                if (!ds.rows.length) throw new Error("הקובץ ריק");
+                setVolunteerDataset(ds);
+                toast.success(`נטענו ${ds.rows.length} מתנדבים`, {
+                  description: "עברו למיפוי העמודות בהמשך העמוד.",
+                });
               } catch (e) {
                 toast.error("שגיאה בטעינת הקובץ", { description: String((e as Error).message) });
               }
@@ -64,38 +65,33 @@ export function UploadPanel({ childrenCount, volunteersCount, onChildren, onVolu
         </div>
 
         <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
-          <p className="text-xs text-muted-foreground">
-            ניתן לחזור לנתוני הדמו לדוגמה בכל עת.
-          </p>
-          <Button variant="ghost" size="sm" onClick={onResetMock}>
+          <p className="text-xs text-muted-foreground">ניתן לטעון נתוני דמו לדוגמה בכל עת.</p>
+          <Button variant="ghost" size="sm" onClick={loadMockData}>
             טען נתוני דמו
           </Button>
         </div>
       </div>
+
+      <MappingPanel />
     </div>
   );
 }
 
 function DropZone({
   title,
-  description,
-  currentCount,
-  onTemplate,
+  rowsCount,
+  columnsCount,
+  onExample,
   onFile,
 }: {
   title: string;
-  description: string;
-  currentCount: number;
-  onTemplate: () => void;
-  onFile: (file: File) => void;
+  rowsCount: number;
+  columnsCount: number;
+  onExample: () => void;
+  onFile: (f: File) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [hover, setHover] = useState(false);
-
-  const handleFiles = (files: FileList | null) => {
-    if (!files || !files[0]) return;
-    onFile(files[0]);
-  };
 
   return (
     <div
@@ -107,7 +103,8 @@ function DropZone({
       onDrop={(e) => {
         e.preventDefault();
         setHover(false);
-        handleFiles(e.dataTransfer.files);
+        const f = e.dataTransfer.files?.[0];
+        if (f) onFile(f);
       }}
       className={`relative rounded-xl border-2 border-dashed p-6 text-center transition ${
         hover ? "border-primary bg-primary/5" : "border-border bg-background"
@@ -117,20 +114,17 @@ function DropZone({
         <FileSpreadsheet className="size-6" />
       </div>
       <h3 className="mt-3 font-semibold text-foreground">{title}</h3>
-      <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-
-      {currentCount > 0 && (
+      {rowsCount > 0 && (
         <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-match-high">
-          <CheckCircle2 className="size-3.5" /> {currentCount} רשומות נטענו
+          <CheckCircle2 className="size-3.5" /> {rowsCount} שורות · {columnsCount} עמודות
         </p>
       )}
-
       <div className="mt-4 flex items-center justify-center gap-2">
         <Button size="sm" onClick={() => inputRef.current?.click()} className="gap-2">
           <Upload className="size-4" /> בחירת קובץ
         </Button>
-        <Button size="sm" variant="outline" onClick={onTemplate} className="gap-2">
-          <Download className="size-4" /> תבנית
+        <Button size="sm" variant="outline" onClick={onExample} className="gap-2">
+          <Download className="size-4" /> קובץ לדוגמה
         </Button>
       </div>
       <input
@@ -138,7 +132,11 @@ function DropZone({
         type="file"
         accept=".csv,.xlsx,.xls"
         className="hidden"
-        onChange={(e) => handleFiles(e.target.files)}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onFile(f);
+          if (inputRef.current) inputRef.current.value = "";
+        }}
       />
     </div>
   );

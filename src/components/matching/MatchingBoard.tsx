@@ -1,162 +1,71 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Download,
+  HeartHandshake,
+  LayoutGrid,
+  RefreshCw,
+  Search,
+  Settings2,
+  Sparkles,
+  Upload,
+  X,
+  GripVertical,
+} from "lucide-react";
 import { toast } from "sonner";
-import { Sparkles, Download, RefreshCw, Search, Users, Baby, HeartHandshake, LayoutGrid, Settings2, Upload } from "lucide-react";
-import { ChildCard } from "./ChildCard";
-import { VolunteerCard } from "./VolunteerCard";
+import { useAppStore } from "@/lib/matching/store";
 import { SettingsPanel } from "./SettingsPanel";
 import { UploadPanel } from "./UploadPanel";
 import { MatchBadge } from "./MatchBadge";
-import type { Assignment, Child, Priorities, Volunteer } from "@/lib/matching/types";
-import { autoMatch, bestVolunteersFor, defaultPriorities, scorePair, scoreTier } from "@/lib/matching/score";
-import { generateMockChildren, generateMockVolunteers } from "@/lib/matching/mockData";
-
-const STORAGE_KEY = "tsamid.matching.v2";
-
-interface Persisted {
-  children: Child[];
-  volunteers: Volunteer[];
-  assignments: Assignment[];
-  priorities: Priorities;
-}
+import {
+  bestVolunteersFor,
+  buildContext,
+  getNameColumn,
+  scorePair,
+  scoreTier,
+} from "@/lib/matching/score";
+import { cn } from "@/lib/utils";
 
 export function MatchingBoard() {
-  const [children, setChildren] = useState<Child[]>(() => generateMockChildren());
-  const [volunteers, setVolunteers] = useState<Volunteer[]>(() => generateMockVolunteers());
-  const [priorities, setPriorities] = useState<Priorities>(defaultPriorities);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [draggingVolunteer, setDraggingVolunteer] = useState<string | null>(null);
-  const [dragOverChild, setDragOverChild] = useState<string | null>(null);
-  const [selectedChild, setSelectedChild] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  const parameters = useAppStore((s) => s.parameters);
+  const mapping = useAppStore((s) => s.mapping);
+  const childDS = useAppStore((s) => s.childDS);
+  const volunteerDS = useAppStore((s) => s.volunteerDS);
+  const assignments = useAppStore((s) => s.assignments);
+  const runAutoMatch = useAppStore((s) => s.runAutoMatch);
+  const assignManual = useAppStore((s) => s.assignManual);
+  const unassignChild = useAppStore((s) => s.unassignChild);
+
   const [tab, setTab] = useState("board");
-  const [hydrated, setHydrated] = useState(false);
+  const [search, setSearch] = useState("");
+  const [draggingVolIdx, setDraggingVolIdx] = useState<number | null>(null);
+  const [dragOverChildIdx, setDragOverChildIdx] = useState<number | null>(null);
+  const [selectedChildIdx, setSelectedChildIdx] = useState<number | null>(null);
 
-  // Load from localStorage
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const p: Persisted = JSON.parse(raw);
-        if (p.children?.length) setChildren(p.children);
-        if (p.volunteers?.length) setVolunteers(p.volunteers);
-        setAssignments(p.assignments ?? []);
-        setPriorities(p.priorities ?? defaultPriorities);
-      } else {
-        setAssignments(autoMatch(children, volunteers, defaultPriorities));
-      }
-    } catch {
-      setAssignments(autoMatch(children, volunteers, defaultPriorities));
-    }
-    setHydrated(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const ctx = useMemo(
+    () => buildContext(parameters, mapping, childDS, volunteerDS),
+    [parameters, mapping, childDS, volunteerDS],
+  );
 
-  // Persist
-  useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ children, volunteers, assignments, priorities }),
-    );
-  }, [children, volunteers, assignments, priorities, hydrated]);
+  const childNameCol = getNameColumn(parameters, mapping, "child");
+  const volNameCol = getNameColumn(parameters, mapping, "volunteer");
+  const childName = (i: number) =>
+    (childNameCol && childDS.rows[i]?.[childNameCol]) || `שורה ${i + 1}`;
+  const volName = (i: number) =>
+    (volNameCol && volunteerDS.rows[i]?.[volNameCol]) || `שורה ${i + 1}`;
 
   const assignmentByChild = useMemo(() => {
-    const m = new Map<string, Assignment>();
-    assignments.forEach((a) => m.set(a.childId, a));
+    const m = new Map<number, { volunteerIdx: number; score: number }>();
+    assignments.forEach((a) => m.set(a.childIdx, { volunteerIdx: a.volunteerIdx, score: a.score }));
     return m;
   }, [assignments]);
 
-  const assignedVolunteerIds = useMemo(
-    () => new Set(assignments.map((a) => a.volunteerId)),
+  const assignedVolIdxs = useMemo(
+    () => new Set(assignments.map((a) => a.volunteerIdx)),
     [assignments],
   );
-
-  const selected = selectedChild ? children.find((c) => c.id === selectedChild) ?? null : null;
-
-  const suggestionsForSelected = useMemo(() => {
-    if (!selected) return [];
-    const currentVol = assignmentByChild.get(selected.id)?.volunteerId;
-    const exclude = new Set(assignedVolunteerIds);
-    if (currentVol) exclude.delete(currentVol);
-    return bestVolunteersFor(selected, volunteers, priorities, exclude, 5);
-  }, [selected, assignmentByChild, assignedVolunteerIds, volunteers, priorities]);
-
-  const handleAssign = (childId: string, volunteerId: string) => {
-    const child = children.find((c) => c.id === childId)!;
-    const vol = volunteers.find((v) => v.id === volunteerId)!;
-    const score = scorePair(child, vol, priorities);
-
-    // Find if volunteer is already assigned elsewhere
-    const displaced = assignments.find((a) => a.volunteerId === volunteerId && a.childId !== childId);
-
-    setAssignments((prev) => {
-      const next = prev.filter((a) => a.childId !== childId && a.volunteerId !== volunteerId);
-      next.push({ childId, volunteerId, score });
-      return next;
-    });
-
-    if (displaced) {
-      const dChild = children.find((c) => c.id === displaced.childId);
-      toast.warning(`Reassigned ${vol.name}`, {
-        description: `${dChild?.name ?? "Another child"} is now unassigned.`,
-      });
-    } else {
-      toast.success(`Assigned ${vol.name} → ${child.name}`, {
-        description: `Match score ${score}`,
-      });
-    }
-  };
-
-  const handleUnassign = (childId: string) => {
-    setAssignments((prev) => prev.filter((a) => a.childId !== childId));
-  };
-
-  const runSmartMatch = () => {
-    setAssignments(autoMatch(children, volunteers, priorities));
-    toast.success("השיבוץ החכם הושלם", { description: "כל הילדים שובצו לפי העדיפויות הנוכחיות." });
-  };
-
-  const exportCsv = () => {
-    const rows = [["ילד", "גיל", "עיר ילד", "מתנדב", "עיר מתנדב", "ציון התאמה"]];
-    children.forEach((c) => {
-      const a = assignmentByChild.get(c.id);
-      const v = a ? volunteers.find((x) => x.id === a.volunteerId) : null;
-      rows.push([c.name, String(c.age), c.city, v?.name ?? "—", v?.city ?? "—", a ? String(a.score) : "—"]);
-    });
-    const csv = rows.map((r) => r.map((f) => `"${f.replace(/"/g, '""')}"`).join(",")).join("\n");
-    // BOM for Hebrew CSV in Excel
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "שיבוצים-צמיד.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-    toast.success("השיבוץ יוצא בהצלחה");
-  };
-
-  const loadMockData = () => {
-    const c = generateMockChildren();
-    const v = generateMockVolunteers();
-    setChildren(c);
-    setVolunteers(v);
-    setAssignments(autoMatch(c, v, priorities));
-    toast.success("נטענו נתוני דמו");
-    setTab("board");
-  };
-
-  const handleUploadChildren = (c: Child[]) => {
-    setChildren(c);
-    setAssignments(autoMatch(c, volunteers, priorities));
-  };
-
-  const handleUploadVolunteers = (v: Volunteer[]) => {
-    setVolunteers(v);
-    setAssignments(autoMatch(children, v, priorities));
-  };
 
   const stats = useMemo(() => {
     const high = assignments.filter((a) => scoreTier(a.score) === "high").length;
@@ -168,22 +77,84 @@ export function MatchingBoard() {
     return { high, med, low, avg, total: assignments.length };
   }, [assignments]);
 
-  const filteredChildren = children.filter(
-    (c) => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.city.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filteredChildIdxs = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return childDS.rows
+      .map((_, i) => i)
+      .filter((i) => {
+        if (!q) return true;
+        return Object.values(childDS.rows[i]).some((v) =>
+          String(v ?? "").toLowerCase().includes(q),
+        );
+      });
+  }, [childDS.rows, search]);
 
-  // Highlight: when a volunteer is dragged, show best children
-  const draggingVolObj = draggingVolunteer ? volunteers.find((v) => v.id === draggingVolunteer) : null;
-  const dragChildScores = useMemo(() => {
-    if (!draggingVolObj) return new Map<string, number>();
-    const m = new Map<string, number>();
-    children.forEach((c) => m.set(c.id, scorePair(c, draggingVolObj, priorities)));
+  const handleAssign = (childIdx: number, volunteerIdx: number) => {
+    assignManual(childIdx, volunteerIdx);
+    toast.success(`שובץ: ${volName(volunteerIdx)} → ${childName(childIdx)}`);
+  };
+
+  const handleRunMatch = () => {
+    runAutoMatch();
+    toast.success("השיבוץ החכם הושלם");
+  };
+
+  const exportCsv = () => {
+    const cols = ["ילד", ...parameters.filter((p) => p.type !== "name").map((p) => `ילד · ${p.name}`),
+      "מתנדב",
+      ...parameters.filter((p) => p.type !== "name").map((p) => `מתנדב · ${p.name}`),
+      "ציון התאמה",
+    ];
+    const rows: string[][] = [cols];
+    childDS.rows.forEach((cRow, i) => {
+      const a = assignmentByChild.get(i);
+      const vRow = a ? volunteerDS.rows[a.volunteerIdx] : null;
+      const line: string[] = [childName(i)];
+      parameters.forEach((p) => {
+        if (p.type === "name") return;
+        const col = mapping[p.id]?.childCol;
+        line.push(col ? String(cRow[col] ?? "") : "");
+      });
+      line.push(a ? String(volName(a.volunteerIdx)) : "—");
+      parameters.forEach((p) => {
+        if (p.type === "name") return;
+        const col = mapping[p.id]?.volunteerCol;
+        line.push(col && vRow ? String(vRow[col] ?? "") : "");
+      });
+      line.push(a ? String(a.score) : "—");
+      rows.push(line);
+    });
+    const csv = rows.map((r) => r.map((f) => `"${f.replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "שיבוצים.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success("השיבוץ יוצא בהצלחה");
+  };
+
+  const suggestions = useMemo(() => {
+    if (selectedChildIdx === null) return [];
+    const exclude = new Set(assignedVolIdxs);
+    const cur = assignmentByChild.get(selectedChildIdx)?.volunteerIdx;
+    if (cur !== undefined) exclude.delete(cur);
+    return bestVolunteersFor(selectedChildIdx, childDS, volunteerDS, parameters, mapping, exclude, 5);
+  }, [selectedChildIdx, assignedVolIdxs, assignmentByChild, childDS, volunteerDS, parameters, mapping]);
+
+  const dragScoreByChild = useMemo(() => {
+    const m = new Map<number, number>();
+    if (draggingVolIdx === null) return m;
+    const v = volunteerDS.rows[draggingVolIdx];
+    childDS.rows.forEach((c, i) => {
+      m.set(i, scorePair(c, v, parameters, mapping, ctx));
+    });
     return m;
-  }, [draggingVolObj, children, priorities]);
+  }, [draggingVolIdx, childDS.rows, volunteerDS.rows, parameters, mapping, ctx]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background" dir="rtl">
-      {/* Header */}
       <header className="sticky top-0 z-30 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-6 py-4">
           <div className="flex items-center gap-3">
@@ -192,13 +163,15 @@ export function MatchingBoard() {
             </div>
             <div>
               <h1 className="text-base font-bold leading-tight text-foreground">לוח שיבוצים — צמיד</h1>
-              <p className="text-xs text-muted-foreground">כלי חכם להתאמת מתנדבים לילדים במחנות צרכים מיוחדים</p>
+              <p className="text-xs text-muted-foreground">
+                מנוע שיבוץ דינמי לקריטריונים מותאמים אישית
+              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <div className="hidden items-center gap-4 rounded-lg border border-border bg-background px-4 py-1.5 md:flex">
-              <Stat label="זוגות" value={`${stats.total}/${children.length}`} />
+              <Stat label="זוגות" value={`${stats.total}/${childDS.rows.length}`} />
               <Divider />
               <Stat label="ממוצע" value={String(stats.avg)} mono />
               <Divider />
@@ -208,8 +181,7 @@ export function MatchingBoard() {
                 <Dot className="bg-match-low mr-1" /> <span className="font-mono text-xs">{stats.low}</span>
               </div>
             </div>
-
-            <Button variant="outline" size="sm" className="gap-2" onClick={runSmartMatch}>
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleRunMatch}>
               <Sparkles className="size-4" /> שיבוץ חכם
             </Button>
             <Button size="sm" className="gap-2" onClick={exportCsv}>
@@ -226,149 +198,218 @@ export function MatchingBoard() {
           <TabsTrigger value="settings" className="gap-2"><Settings2 className="size-4" /> הגדרות</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="upload">
-          <UploadPanel
-            childrenCount={children.length}
-            volunteersCount={volunteers.length}
-            onChildren={handleUploadChildren}
-            onVolunteers={handleUploadVolunteers}
-            onResetMock={loadMockData}
-          />
+        <TabsContent value="settings">
+          <SettingsPanel />
         </TabsContent>
 
-        <TabsContent value="settings">
-          <SettingsPanel priorities={priorities} onChange={setPriorities} onRunMatch={runSmartMatch} />
+        <TabsContent value="upload">
+          <UploadPanel />
         </TabsContent>
 
         <TabsContent value="board">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_420px]">
-        {/* Children column */}
-        <section className="min-w-0">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Baby className="size-4 text-primary" />
-              <h2 className="text-sm font-bold tracking-wider text-foreground">ילדים</h2>
-              <span className="font-mono text-xs text-muted-foreground">{filteredChildren.length}</span>
-            </div>
-            <div className="relative w-64">
-              <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="חיפוש לפי שם או עיר…"
-                className="h-9 pr-9"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {filteredChildren.map((c) => {
-              const a = assignmentByChild.get(c.id);
-              const v = a ? volunteers.find((x) => x.id === a.volunteerId) : undefined;
-              const dragScore = dragChildScores.get(c.id);
-              const highlight = !!draggingVolObj && (dragScore ?? 0) >= 80;
-              return (
-                <ChildCard
-                  key={c.id}
-                  child={c}
-                  assignedVolunteer={v}
-                  score={a?.score ?? dragScore}
-                  highlighted={highlight}
-                  isDragOver={dragOverChild === c.id}
-                  onDragOver={() => setDragOverChild(c.id)}
-                  onDragLeave={() => setDragOverChild((cur) => (cur === c.id ? null : cur))}
-                  onDrop={(e) => {
-                    const vid = e.dataTransfer.getData("text/volunteer-id");
-                    setDragOverChild(null);
-                    if (vid) handleAssign(c.id, vid);
-                  }}
-                  onUnassign={() => handleUnassign(c.id)}
-                  onSelect={() => setSelectedChild((cur) => (cur === c.id ? null : c.id))}
-                  selected={selectedChild === c.id}
-                />
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Volunteers column */}
-        <aside className="min-w-0">
-          <div className="sticky top-[88px]">
-            <div className="mb-4 flex items-center gap-2">
-              <Users className="size-4 text-primary" />
-              <h2 className="text-sm font-bold tracking-wider text-foreground">מתנדבים</h2>
-              <span className="font-mono text-xs text-muted-foreground">
-                {volunteers.length - assignedVolunteerIds.size} זמינים
-              </span>
-            </div>
-
-            {selected && (
-              <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs font-bold tracking-wider text-primary">
-                    הצעות עבור {selected.name}
-                  </p>
-                  <button
-                    onClick={() => setSelectedChild(null)}
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    נקה
-                  </button>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
+            <section className="min-w-0">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-bold tracking-wider text-foreground">תוצאות השיבוץ</h2>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {filteredChildIdxs.length}/{childDS.rows.length}
+                  </span>
                 </div>
-                <div className="space-y-1.5">
-                  {suggestionsForSelected.map(({ volunteer, score }) => (
-                    <button
-                      key={volunteer.id}
-                      onClick={() => handleAssign(selected.id, volunteer.id)}
-                      className="flex w-full items-center justify-between rounded-lg border border-transparent bg-card px-3 py-2 text-right transition hover:border-primary/30 hover:bg-card"
-                    >
-                      <span className="text-sm font-medium text-foreground">{volunteer.name}</span>
-                      <MatchBadge score={score} />
-                    </button>
-                  ))}
+                <div className="relative w-64">
+                  <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="חיפוש בכל העמודות…"
+                    className="h-9 pr-9"
+                  />
                 </div>
               </div>
-            )}
 
-            <div className="max-h-[calc(100vh-260px)] space-y-2 overflow-y-auto pl-1">
-              {volunteers.map((v) => (
-                <VolunteerCard
-                  key={v.id}
-                  volunteer={v}
-                  assigned={assignedVolunteerIds.has(v.id)}
-                  dragging={draggingVolunteer === v.id}
-                  score={selected ? scorePair(selected, v, priorities) : undefined}
-                  highlighted={
-                    selected
-                      ? scorePair(selected, v, priorities) >= 80 && !assignedVolunteerIds.has(v.id)
-                      : false
-                  }
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData("text/volunteer-id", v.id);
-                    e.dataTransfer.effectAllowed = "move";
-                    setDraggingVolunteer(v.id);
-                  }}
-                  onDragEnd={() => {
-                    setDraggingVolunteer(null);
-                    setDragOverChild(null);
-                  }}
-                />
-              ))}
-            </div>
+              <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-xs font-semibold text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2 text-right">ילד</th>
+                      <th className="px-3 py-2 text-right">מתנדב משובץ</th>
+                      <th className="px-3 py-2 text-right">ציון התאמה</th>
+                      <th className="px-3 py-2 text-right w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredChildIdxs.map((i) => {
+                      const a = assignmentByChild.get(i);
+                      const dragScore = dragScoreByChild.get(i);
+                      const showDrag = draggingVolIdx !== null && dragScore !== undefined;
+                      const isSelected = selectedChildIdx === i;
+                      const isDragOver = dragOverChildIdx === i;
+                      return (
+                        <tr
+                          key={i}
+                          onClick={() => setSelectedChildIdx((cur) => (cur === i ? null : i))}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setDragOverChildIdx(i);
+                          }}
+                          onDragLeave={() =>
+                            setDragOverChildIdx((cur) => (cur === i ? null : cur))
+                          }
+                          onDrop={(e) => {
+                            const raw = e.dataTransfer.getData("text/volunteer-idx");
+                            setDragOverChildIdx(null);
+                            if (raw !== "") handleAssign(i, Number(raw));
+                          }}
+                          className={cn(
+                            "cursor-pointer border-t border-border transition-colors",
+                            isSelected && "bg-primary/5",
+                            isDragOver && "bg-primary/10 outline outline-2 outline-primary",
+                            showDrag && (dragScore ?? 0) >= 80 && "bg-match-high/10",
+                          )}
+                        >
+                          <td className="px-3 py-2 font-medium text-foreground">
+                            {childName(i)}
+                          </td>
+                          <td className="px-3 py-2">
+                            {a ? (
+                              <span className="text-foreground">{volName(a.volunteerIdx)}</span>
+                            ) : (
+                              <span className="text-muted-foreground">— גררו מתנדב לכאן —</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            {a ? (
+                              <MatchBadge score={a.score} />
+                            ) : showDrag ? (
+                              <MatchBadge score={dragScore!} className="opacity-70" />
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            {a && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  unassignChild(i);
+                                }}
+                                className="rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-destructive"
+                                aria-label="בטל שיבוץ"
+                              >
+                                <X className="size-4" />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {!filteredChildIdxs.length && (
+                      <tr>
+                        <td colSpan={4} className="px-3 py-10 text-center text-sm text-muted-foreground">
+                          לא נמצאו תוצאות.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-3 w-full gap-2 text-muted-foreground"
-              onClick={() => {
-                setAssignments(autoMatch(children, volunteers, priorities));
-                toast.success("הלוח אופס");
-              }}
-            >
-              <RefreshCw className="size-4" /> איפוס הלוח
-            </Button>
-          </div>
-        </aside>
+            <aside className="min-w-0">
+              <div className="sticky top-[88px]">
+                <div className="mb-4 flex items-center gap-2">
+                  <h2 className="text-sm font-bold tracking-wider text-foreground">מתנדבים</h2>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {volunteerDS.rows.length - assignedVolIdxs.size} זמינים
+                  </span>
+                </div>
+
+                {selectedChildIdx !== null && (
+                  <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-xs font-bold tracking-wider text-primary">
+                        הצעות עבור {childName(selectedChildIdx)}
+                      </p>
+                      <button
+                        onClick={() => setSelectedChildIdx(null)}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        נקה
+                      </button>
+                    </div>
+                    <div className="space-y-1.5">
+                      {suggestions.map(({ volunteerIdx, score }) => (
+                        <button
+                          key={volunteerIdx}
+                          onClick={() => handleAssign(selectedChildIdx, volunteerIdx)}
+                          className="flex w-full items-center justify-between rounded-lg border border-transparent bg-card px-3 py-2 text-right transition hover:border-primary/30"
+                        >
+                          <span className="text-sm font-medium text-foreground">{volName(volunteerIdx)}</span>
+                          <MatchBadge score={score} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="max-h-[calc(100vh-260px)] space-y-2 overflow-y-auto pl-1">
+                  {volunteerDS.rows.map((_, vi) => {
+                    const assigned = assignedVolIdxs.has(vi);
+                    const showHint =
+                      selectedChildIdx !== null
+                        ? scorePair(
+                            childDS.rows[selectedChildIdx],
+                            volunteerDS.rows[vi],
+                            parameters,
+                            mapping,
+                            ctx,
+                          )
+                        : undefined;
+                    return (
+                      <div
+                        key={vi}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/volunteer-idx", String(vi));
+                          e.dataTransfer.effectAllowed = "move";
+                          setDraggingVolIdx(vi);
+                        }}
+                        onDragEnd={() => {
+                          setDraggingVolIdx(null);
+                          setDragOverChildIdx(null);
+                        }}
+                        className={cn(
+                          "group flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm transition-all cursor-grab active:cursor-grabbing",
+                          "hover:border-primary/40 hover:shadow-md",
+                          assigned && "opacity-50",
+                          draggingVolIdx === vi && "opacity-40 scale-95",
+                        )}
+                      >
+                        <GripVertical className="size-4 shrink-0 text-muted-foreground/50" />
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground font-mono text-[11px] font-semibold">
+                          {String(volName(vi)).split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="truncate text-sm font-semibold text-foreground">{volName(vi)}</h4>
+                            {showHint !== undefined && <MatchBadge score={showHint} />}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-3 w-full gap-2 text-muted-foreground"
+                  onClick={handleRunMatch}
+                >
+                  <RefreshCw className="size-4" /> חישוב שיבוץ חכם מחדש
+                </Button>
+              </div>
+            </aside>
           </div>
         </TabsContent>
       </Tabs>
