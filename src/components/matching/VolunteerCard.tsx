@@ -45,12 +45,16 @@ export function VolunteerCard({
           {score !== undefined && <MatchBadge score={score} />}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-          <span className="font-mono">age {volunteer.age}</span>
+          <span className="font-mono">גיל {volunteer.age}</span>
           <span className="inline-flex items-center gap-1"><MapPin className="size-3" />{volunteer.city}</span>
-          <span className="inline-flex items-center gap-1"><Languages className="size-3" />{volunteer.languages.join("/")}</span>
-          <span className="inline-flex items-center gap-1"><ShieldCheck className="size-3" />med: {volunteer.medicalExperience}</span>
+          <span className="inline-flex items-center gap-1"><Languages className="size-3" />{volunteer.languages.join(" / ")}</span>
+          <span className="inline-flex items-center gap-1"><ShieldCheck className="size-3" />רפואי: {medLabel(volunteer.medicalExperience)}</span>
         </div>
       </div>
     </div>
   );
+}
+
+function medLabel(m: string) {
+  return ({ none: "אין", low: "נמוך", medium: "בינוני", high: "גבוה" } as Record<string, string>)[m] ?? m;
 }
