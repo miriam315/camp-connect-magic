@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Assignment, Dataset, Mapping, Parameter } from "./types";
-import { autoMatch } from "./score";
+import { autoMatch, buildContext, scorePair } from "./score";
 import {
   defaultMapping,
   defaultParameters,
@@ -113,16 +113,11 @@ export const useAppStore = create<AppState>()(
 
       assignManual: (childIdx, volunteerIdx) =>
         set((s) => {
-          // Late import to use the up-to-date scoring with current mapping/params.
-          // (scorePair lives in score.ts but we'd circular-import — recompute via autoMatch slice.)
           const others = s.assignments.filter(
             (a) => a.childIdx !== childIdx && a.volunteerIdx !== volunteerIdx,
           );
-          // Compute single-pair score using buildContext+scorePair via dynamic call.
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const mod = require("./score") as typeof import("./score");
-          const ctx = mod.buildContext(s.parameters, s.mapping, s.childDS, s.volunteerDS);
-          const score = mod.scorePair(
+          const ctx = buildContext(s.parameters, s.mapping, s.childDS, s.volunteerDS);
+          const score = scorePair(
             s.childDS.rows[childIdx],
             s.volunteerDS.rows[volunteerIdx],
             s.parameters,
