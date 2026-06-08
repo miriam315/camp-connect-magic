@@ -1,21 +1,21 @@
 import type { Child, Volunteer, Language, MedicalLevel } from "./types";
 
-const cities = ["Tel Aviv", "Jerusalem", "Haifa", "Be'er Sheva", "Netanya", "Rishon LeZion", "Petah Tikva", "Ashdod"];
-const languages: Language[] = ["Hebrew", "Arabic", "English", "Russian", "French"];
+const cities = ["תל אביב", "ירושלים", "חיפה", "באר שבע", "נתניה", "ראשון לציון", "פתח תקווה", "אשדוד"];
+const languages: Language[] = ["עברית", "ערבית", "אנגלית", "רוסית", "צרפתית"];
 const medical: MedicalLevel[] = ["none", "low", "medium", "high"];
 
 const childNames = [
-  "Noam Levi", "Adam Cohen", "Yael Mizrahi", "Itai Bar", "Maya Peretz",
-  "Roni Azulay", "Tomer Friedman", "Shira Ben-David", "Eitan Gold", "Liam Sasson",
-  "Talia Katz", "Daniel Ohana", "Avigail Stern", "Yonatan Rubin", "Hila Vaknin",
-  "Omer Tal", "Lior Shapira", "Naomi Ziv", "Ariel Dahan", "Eden Halevi",
+  "נועם לוי", "אדם כהן", "יעל מזרחי", "איתי בר", "מאיה פרץ",
+  "רוני אזולאי", "תומר פרידמן", "שירה בן-דוד", "איתן גולד", "ליאם ששון",
+  "טליה כץ", "דניאל אוחנה", "אביגיל שטרן", "יונתן רובין", "הילה ואקנין",
+  "עומר טל", "ליאור שפירא", "נעמי זיו", "אריאל דהן", "עדן הלוי",
 ];
 
 const volunteerNames = [
-  "Sarah Klein", "David Mor", "Rebecca Adler", "Yossi Hadad", "Michal Eshel",
-  "Avi Barak", "Tamar Lev", "Nadav Ron", "Efrat Dayan", "Gilad Amit",
-  "Or Rotem", "Maya Ovadia", "Tal Shemesh", "Ronen Carmi", "Hadar Bitton",
-  "Yael Segal", "Eyal Nir", "Dana Peled", "Itamar Bloch", "Noa Erez",
+  "שרה קליין", "דוד מור", "רבקה אדלר", "יוסי חדד", "מיכל אשל",
+  "אבי ברק", "תמר לב", "נדב רון", "אפרת דיין", "גלעד עמית",
+  "אור רותם", "מאיה עובדיה", "טל שמש", "רונן כרמי", "הדר ביטון",
+  "יעל סגל", "אייל ניר", "דנה פלד", "איתמר בלוך", "נועה ארז",
 ];
 
 function pick<T>(arr: T[], i: number): T {
@@ -30,7 +30,7 @@ export function generateMockChildren(): Child[] {
     city: pick(cities, i * 3),
     language: pick(languages, i * 2),
     medicalLevel: pick(medical, i + 1),
-    notes: i % 4 === 0 ? "Needs calm environment" : i % 3 === 0 ? "Loves music" : "Sensory friendly",
+    notes: i % 4 === 0 ? "זקוק לסביבה רגועה" : i % 3 === 0 ? "אוהב מוזיקה" : "רגיש לחושים",
     preferredGender: i % 5 === 0 ? "female" : i % 7 === 0 ? "male" : "any",
   }));
 }

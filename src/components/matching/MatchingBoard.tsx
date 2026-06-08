@@ -1,33 +1,37 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Sparkles, Download, RefreshCw, Search, Users, Baby, HeartHandshake } from "lucide-react";
+import { Sparkles, Download, RefreshCw, Search, Users, Baby, HeartHandshake, LayoutGrid, Settings2, Upload } from "lucide-react";
 import { ChildCard } from "./ChildCard";
 import { VolunteerCard } from "./VolunteerCard";
-import { SettingsDrawer } from "./SettingsDrawer";
+import { SettingsPanel } from "./SettingsPanel";
+import { UploadPanel } from "./UploadPanel";
 import { MatchBadge } from "./MatchBadge";
 import type { Assignment, Child, Priorities, Volunteer } from "@/lib/matching/types";
 import { autoMatch, bestVolunteersFor, defaultPriorities, scorePair, scoreTier } from "@/lib/matching/score";
 import { generateMockChildren, generateMockVolunteers } from "@/lib/matching/mockData";
 
-const STORAGE_KEY = "tsamid.matching.v1";
+const STORAGE_KEY = "tsamid.matching.v2";
 
 interface Persisted {
+  children: Child[];
+  volunteers: Volunteer[];
   assignments: Assignment[];
   priorities: Priorities;
 }
 
 export function MatchingBoard() {
-  const children = useMemo(() => generateMockChildren(), []);
-  const volunteers = useMemo(() => generateMockVolunteers(), []);
-
+  const [children, setChildren] = useState<Child[]>(() => generateMockChildren());
+  const [volunteers, setVolunteers] = useState<Volunteer[]>(() => generateMockVolunteers());
   const [priorities, setPriorities] = useState<Priorities>(defaultPriorities);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [draggingVolunteer, setDraggingVolunteer] = useState<string | null>(null);
   const [dragOverChild, setDragOverChild] = useState<string | null>(null);
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [tab, setTab] = useState("board");
   const [hydrated, setHydrated] = useState(false);
 
   // Load from localStorage
@@ -36,6 +40,8 @@ export function MatchingBoard() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const p: Persisted = JSON.parse(raw);
+        if (p.children?.length) setChildren(p.children);
+        if (p.volunteers?.length) setVolunteers(p.volunteers);
         setAssignments(p.assignments ?? []);
         setPriorities(p.priorities ?? defaultPriorities);
       } else {
@@ -45,13 +51,17 @@ export function MatchingBoard() {
       setAssignments(autoMatch(children, volunteers, defaultPriorities));
     }
     setHydrated(true);
-  }, [children, volunteers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Persist
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ assignments, priorities }));
-  }, [assignments, priorities, hydrated]);
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ children, volunteers, assignments, priorities }),
+    );
+  }, [children, volunteers, assignments, priorities, hydrated]);
 
   const assignmentByChild = useMemo(() => {
     const m = new Map<string, Assignment>();
@@ -106,25 +116,46 @@ export function MatchingBoard() {
 
   const runSmartMatch = () => {
     setAssignments(autoMatch(children, volunteers, priorities));
-    toast.success("Smart match complete", { description: "All children paired by current priorities." });
+    toast.success("השיבוץ החכם הושלם", { description: "כל הילדים שובצו לפי העדיפויות הנוכחיות." });
   };
 
   const exportCsv = () => {
-    const rows = [["Child", "Age", "City", "Volunteer", "Volunteer City", "Match Score"]];
+    const rows = [["ילד", "גיל", "עיר ילד", "מתנדב", "עיר מתנדב", "ציון התאמה"]];
     children.forEach((c) => {
       const a = assignmentByChild.get(c.id);
       const v = a ? volunteers.find((x) => x.id === a.volunteerId) : null;
       rows.push([c.name, String(c.age), c.city, v?.name ?? "—", v?.city ?? "—", a ? String(a.score) : "—"]);
     });
     const csv = rows.map((r) => r.map((f) => `"${f.replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    // BOM for Hebrew CSV in Excel
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "tsamid-assignments.csv";
+    link.download = "שיבוצים-צמיד.csv";
     link.click();
     URL.revokeObjectURL(url);
-    toast.success("Schedule exported");
+    toast.success("השיבוץ יוצא בהצלחה");
+  };
+
+  const loadMockData = () => {
+    const c = generateMockChildren();
+    const v = generateMockVolunteers();
+    setChildren(c);
+    setVolunteers(v);
+    setAssignments(autoMatch(c, v, priorities));
+    toast.success("נטענו נתוני דמו");
+    setTab("board");
+  };
+
+  const handleUploadChildren = (c: Child[]) => {
+    setChildren(c);
+    setAssignments(autoMatch(c, volunteers, priorities));
+  };
+
+  const handleUploadVolunteers = (v: Volunteer[]) => {
+    setVolunteers(v);
+    setAssignments(autoMatch(children, v, priorities));
   };
 
   const stats = useMemo(() => {
@@ -151,7 +182,7 @@ export function MatchingBoard() {
   }, [draggingVolObj, children, priorities]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background" dir="rtl">
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-6 py-4">
@@ -160,52 +191,72 @@ export function MatchingBoard() {
               <HeartHandshake className="size-5" />
             </div>
             <div>
-              <h1 className="text-base font-semibold leading-tight text-foreground">Tsamid Matching Board</h1>
-              <p className="text-xs text-muted-foreground">Smart matching & scheduling for special-needs camps</p>
+              <h1 className="text-base font-bold leading-tight text-foreground">לוח שיבוצים — צמיד</h1>
+              <p className="text-xs text-muted-foreground">כלי חכם להתאמת מתנדבים לילדים במחנות צרכים מיוחדים</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <div className="hidden items-center gap-4 rounded-lg border border-border bg-background px-4 py-1.5 md:flex">
-              <Stat label="Pairs" value={`${stats.total}/${children.length}`} />
+              <Stat label="זוגות" value={`${stats.total}/${children.length}`} />
               <Divider />
-              <Stat label="Avg" value={String(stats.avg)} mono />
+              <Stat label="ממוצע" value={String(stats.avg)} mono />
               <Divider />
               <div className="flex items-center gap-1.5">
                 <Dot className="bg-match-high" /> <span className="font-mono text-xs">{stats.high}</span>
-                <Dot className="bg-match-med ml-1" /> <span className="font-mono text-xs">{stats.med}</span>
-                <Dot className="bg-match-low ml-1" /> <span className="font-mono text-xs">{stats.low}</span>
+                <Dot className="bg-match-med mr-1" /> <span className="font-mono text-xs">{stats.med}</span>
+                <Dot className="bg-match-low mr-1" /> <span className="font-mono text-xs">{stats.low}</span>
               </div>
             </div>
 
-            <SettingsDrawer priorities={priorities} onChange={setPriorities} />
             <Button variant="outline" size="sm" className="gap-2" onClick={runSmartMatch}>
-              <Sparkles className="size-4" /> Smart Suggest
+              <Sparkles className="size-4" /> שיבוץ חכם
             </Button>
             <Button size="sm" className="gap-2" onClick={exportCsv}>
-              <Download className="size-4" /> Export
+              <Download className="size-4" /> יצוא CSV
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Board */}
-      <main className="mx-auto grid w-full max-w-[1600px] flex-1 grid-cols-1 gap-6 px-6 py-6 lg:grid-cols-[1fr_420px]">
+      <Tabs value={tab} onValueChange={setTab} className="mx-auto w-full max-w-[1600px] flex-1 px-6 py-6">
+        <TabsList className="mb-6">
+          <TabsTrigger value="board" className="gap-2"><LayoutGrid className="size-4" /> לוח שיבוצים</TabsTrigger>
+          <TabsTrigger value="upload" className="gap-2"><Upload className="size-4" /> טעינת נתונים</TabsTrigger>
+          <TabsTrigger value="settings" className="gap-2"><Settings2 className="size-4" /> הגדרות</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="upload">
+          <UploadPanel
+            childrenCount={children.length}
+            volunteersCount={volunteers.length}
+            onChildren={handleUploadChildren}
+            onVolunteers={handleUploadVolunteers}
+            onResetMock={loadMockData}
+          />
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <SettingsPanel priorities={priorities} onChange={setPriorities} onRunMatch={runSmartMatch} />
+        </TabsContent>
+
+        <TabsContent value="board">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_420px]">
         {/* Children column */}
         <section className="min-w-0">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Baby className="size-4 text-primary" />
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">Children</h2>
+              <h2 className="text-sm font-bold tracking-wider text-foreground">ילדים</h2>
               <span className="font-mono text-xs text-muted-foreground">{filteredChildren.length}</span>
             </div>
             <div className="relative w-64">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name or city…"
-                className="h-9 pl-9"
+                placeholder="חיפוש לפי שם או עיר…"
+                className="h-9 pr-9"
               />
             </div>
           </div>
@@ -245,23 +296,23 @@ export function MatchingBoard() {
           <div className="sticky top-[88px]">
             <div className="mb-4 flex items-center gap-2">
               <Users className="size-4 text-primary" />
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">Volunteers</h2>
+              <h2 className="text-sm font-bold tracking-wider text-foreground">מתנדבים</h2>
               <span className="font-mono text-xs text-muted-foreground">
-                {volunteers.length - assignedVolunteerIds.size} available
+                {volunteers.length - assignedVolunteerIds.size} זמינים
               </span>
             </div>
 
             {selected && (
               <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-3">
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-                    Suggestions for {selected.name}
+                  <p className="text-xs font-bold tracking-wider text-primary">
+                    הצעות עבור {selected.name}
                   </p>
                   <button
                     onClick={() => setSelectedChild(null)}
                     className="text-xs text-muted-foreground hover:text-foreground"
                   >
-                    clear
+                    נקה
                   </button>
                 </div>
                 <div className="space-y-1.5">
@@ -269,7 +320,7 @@ export function MatchingBoard() {
                     <button
                       key={volunteer.id}
                       onClick={() => handleAssign(selected.id, volunteer.id)}
-                      className="flex w-full items-center justify-between rounded-lg border border-transparent bg-card px-3 py-2 text-left transition hover:border-primary/30 hover:bg-card"
+                      className="flex w-full items-center justify-between rounded-lg border border-transparent bg-card px-3 py-2 text-right transition hover:border-primary/30 hover:bg-card"
                     >
                       <span className="text-sm font-medium text-foreground">{volunteer.name}</span>
                       <MatchBadge score={score} />
@@ -279,7 +330,7 @@ export function MatchingBoard() {
               </div>
             )}
 
-            <div className="max-h-[calc(100vh-220px)] space-y-2 overflow-y-auto pr-1">
+            <div className="max-h-[calc(100vh-260px)] space-y-2 overflow-y-auto pl-1">
               {volunteers.map((v) => (
                 <VolunteerCard
                   key={v.id}
@@ -310,16 +361,17 @@ export function MatchingBoard() {
               size="sm"
               className="mt-3 w-full gap-2 text-muted-foreground"
               onClick={() => {
-                localStorage.removeItem(STORAGE_KEY);
                 setAssignments(autoMatch(children, volunteers, priorities));
-                toast.success("Board reset");
+                toast.success("הלוח אופס");
               }}
             >
-              <RefreshCw className="size-4" /> Reset board
+              <RefreshCw className="size-4" /> איפוס הלוח
             </Button>
           </div>
         </aside>
-      </main>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -327,7 +379,7 @@ export function MatchingBoard() {
 function Stat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className="text-[10px] tracking-wider text-muted-foreground">{label}</span>
       <span className={`text-sm font-semibold text-foreground ${mono ? "font-mono tabular-nums" : ""}`}>{value}</span>
     </div>
   );

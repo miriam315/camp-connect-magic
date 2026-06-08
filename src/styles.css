@@ -65,7 +65,7 @@
   --color-match-med-foreground: var(--match-med-foreground);
   --color-match-low: var(--match-low);
   --color-match-low-foreground: var(--match-low-foreground);
-  --font-sans: "Inter", "Assistant", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Heebo", "Assistant", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 

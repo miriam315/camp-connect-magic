@@ -24,6 +24,13 @@ const medColors: Record<string, string> = {
   high: "text-match-low",
 };
 
+const medLabels: Record<string, string> = {
+  none: "אין",
+  low: "נמוך",
+  medium: "בינוני",
+  high: "גבוה",
+};
+
 export function ChildCard({
   child,
   assignedVolunteer,
@@ -66,7 +73,7 @@ export function ChildCard({
             <span className="inline-flex items-center gap-1"><MapPin className="size-3" />{child.city}</span>
             <span className="inline-flex items-center gap-1"><Languages className="size-3" />{child.language}</span>
             <span className={cn("inline-flex items-center gap-1 font-medium", medColors[child.medicalLevel])}>
-              <Stethoscope className="size-3" />{child.medicalLevel}
+              <Stethoscope className="size-3" />רפואי: {medLabels[child.medicalLevel]}
             </span>
           </div>
         </div>
@@ -79,7 +86,7 @@ export function ChildCard({
         {assignedVolunteer ? (
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Assigned</p>
+              <p className="text-[10px] tracking-wider text-muted-foreground">משובץ</p>
               <p className="truncate text-sm font-medium text-foreground">{assignedVolunteer.name}</p>
             </div>
             <button
@@ -88,14 +95,14 @@ export function ChildCard({
                 onUnassign?.();
               }}
               className="rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-muted hover:text-destructive group-hover:opacity-100"
-              aria-label="Unassign"
+              aria-label="בטל שיבוץ"
             >
               <X className="size-4" />
             </button>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">
-            Drag a volunteer here, or click to see suggestions.
+            גררו מתנדב לכאן, או לחצו לקבלת הצעות חכמות.
           </p>
         )}
       </div>
