@@ -1,5 +1,5 @@
 export type MedicalLevel = "none" | "low" | "medium" | "high";
-export type Language = "Hebrew" | "Arabic" | "English" | "Russian" | "French";
+export type Language = "עברית" | "ערבית" | "אנגלית" | "רוסית" | "צרפתית";
 
 export interface Child {
   id: string;
