@@ -444,3 +444,68 @@ function Divider() {
 function Dot({ className }: { className?: string }) {
   return <span className={`size-2 rounded-full ${className ?? ""}`} />;
 }
+
+function ScoreCell({
+  childIdx,
+  volunteerIdx,
+  score,
+}: {
+  childIdx: number;
+  volunteerIdx: number;
+  score: number;
+}) {
+  const parameters = useAppStore((s) => s.parameters);
+  const mapping = useAppStore((s) => s.mapping);
+  const childDS = useAppStore((s) => s.childDS);
+  const volunteerDS = useAppStore((s) => s.volunteerDS);
+  const ctx = useMemo(
+    () => buildContext(parameters, mapping, childDS, volunteerDS),
+    [parameters, mapping, childDS, volunteerDS],
+  );
+  const breakdown = scoreBreakdown(
+    childDS.rows[childIdx],
+    volunteerDS.rows[volunteerIdx],
+    parameters,
+    mapping,
+    ctx,
+  );
+  const contributing = breakdown.filter((b) => b.value !== null && b.value > 0);
+  const top = [...contributing].sort((a, b) => (b.value! - a.value!)).slice(0, 4);
+
+  return (
+    <HoverCard openDelay={120} closeDelay={80}>
+      <HoverCardTrigger asChild>
+        <button
+          type="button"
+          className="cursor-help"
+          onClick={(e) => e.stopPropagation()}
+          aria-label="הסבר ציון התאמה"
+        >
+          <MatchBadge score={score} />
+        </button>
+      </HoverCardTrigger>
+      <HoverCardContent align="start" side="top" className="w-72" dir="rtl">
+        <p className="mb-2 text-xs font-bold tracking-wider text-muted-foreground">בסיס ההתאמה</p>
+        {top.length === 0 ? (
+          <p className="text-xs text-muted-foreground">לא נמצאו קריטריונים חופפים.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {top.map(({ param, value }) => (
+              <li key={param.id} className="flex items-center justify-between gap-2 text-xs">
+                <span className="truncate text-foreground">{param.name}</span>
+                <span className="font-mono tabular-nums text-muted-foreground">
+                  {Math.round((value ?? 0) * 100)}% · משקל {param.weight}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {breakdown.some((b) => b.value === 0) && (
+          <p className="mt-2 border-t border-border pt-2 text-[11px] text-muted-foreground">
+            קריטריונים שלא חפפו: {breakdown.filter((b) => b.value === 0).map((b) => b.param.name).join(", ")}
+          </p>
+        )}
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
