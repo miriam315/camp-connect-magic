@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Search,
   Settings2,
+  SlidersHorizontal,
   Sparkles,
   Upload,
   X,
@@ -18,12 +19,15 @@ import { toast } from "sonner";
 import { useAppStore } from "@/lib/matching/store";
 import { SettingsPanel } from "./SettingsPanel";
 import { UploadPanel } from "./UploadPanel";
+import { AdvancedSettingsPanel } from "./AdvancedSettingsPanel";
 import { MatchBadge } from "./MatchBadge";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import {
   bestVolunteersFor,
   buildContext,
   getNameColumn,
   scorePair,
+  scoreBreakdown,
   scoreTier,
 } from "@/lib/matching/score";
 import { cn } from "@/lib/utils";
@@ -196,6 +200,7 @@ export function MatchingBoard() {
           <TabsTrigger value="board" className="gap-2"><LayoutGrid className="size-4" /> לוח שיבוצים</TabsTrigger>
           <TabsTrigger value="upload" className="gap-2"><Upload className="size-4" /> טעינת נתונים</TabsTrigger>
           <TabsTrigger value="settings" className="gap-2"><Settings2 className="size-4" /> הגדרות</TabsTrigger>
+          <TabsTrigger value="advanced" className="gap-2"><SlidersHorizontal className="size-4" /> מתקדם</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings">
@@ -204,6 +209,10 @@ export function MatchingBoard() {
 
         <TabsContent value="upload">
           <UploadPanel />
+        </TabsContent>
+
+        <TabsContent value="advanced">
+          <AdvancedSettingsPanel />
         </TabsContent>
 
         <TabsContent value="board">
@@ -279,7 +288,11 @@ export function MatchingBoard() {
                           </td>
                           <td className="px-3 py-2">
                             {a ? (
-                              <MatchBadge score={a.score} />
+                              <ScoreCell
+                                childIdx={i}
+                                volunteerIdx={a.volunteerIdx}
+                                score={a.score}
+                              />
                             ) : showDrag ? (
                               <MatchBadge score={dragScore!} className="opacity-70" />
                             ) : (
