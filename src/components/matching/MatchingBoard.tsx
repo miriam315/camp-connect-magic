@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Search,
   Settings2,
+  SlidersHorizontal,
   Sparkles,
   Upload,
   X,
@@ -18,12 +19,15 @@ import { toast } from "sonner";
 import { useAppStore } from "@/lib/matching/store";
 import { SettingsPanel } from "./SettingsPanel";
 import { UploadPanel } from "./UploadPanel";
+import { AdvancedSettingsPanel } from "./AdvancedSettingsPanel";
 import { MatchBadge } from "./MatchBadge";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import {
   bestVolunteersFor,
   buildContext,
   getNameColumn,
   scorePair,
+  scoreBreakdown,
   scoreTier,
 } from "@/lib/matching/score";
 import { cn } from "@/lib/utils";
@@ -196,6 +200,7 @@ export function MatchingBoard() {
           <TabsTrigger value="board" className="gap-2"><LayoutGrid className="size-4" /> לוח שיבוצים</TabsTrigger>
           <TabsTrigger value="upload" className="gap-2"><Upload className="size-4" /> טעינת נתונים</TabsTrigger>
           <TabsTrigger value="settings" className="gap-2"><Settings2 className="size-4" /> הגדרות</TabsTrigger>
+          <TabsTrigger value="advanced" className="gap-2"><SlidersHorizontal className="size-4" /> מתקדם</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings">
@@ -204,6 +209,10 @@ export function MatchingBoard() {
 
         <TabsContent value="upload">
           <UploadPanel />
+        </TabsContent>
+
+        <TabsContent value="advanced">
+          <AdvancedSettingsPanel />
         </TabsContent>
 
         <TabsContent value="board">
@@ -279,7 +288,11 @@ export function MatchingBoard() {
                           </td>
                           <td className="px-3 py-2">
                             {a ? (
-                              <MatchBadge score={a.score} />
+                              <ScoreCell
+                                childIdx={i}
+                                volunteerIdx={a.volunteerIdx}
+                                score={a.score}
+                              />
                             ) : showDrag ? (
                               <MatchBadge score={dragScore!} className="opacity-70" />
                             ) : (
@@ -430,4 +443,69 @@ function Divider() {
 }
 function Dot({ className }: { className?: string }) {
   return <span className={`size-2 rounded-full ${className ?? ""}`} />;
+}
+
+function ScoreCell({
+  childIdx,
+  volunteerIdx,
+  score,
+}: {
+  childIdx: number;
+  volunteerIdx: number;
+  score: number;
+}) {
+  const parameters = useAppStore((s) => s.parameters);
+  const mapping = useAppStore((s) => s.mapping);
+  const childDS = useAppStore((s) => s.childDS);
+  const volunteerDS = useAppStore((s) => s.volunteerDS);
+  const ctx = useMemo(
+    () => buildContext(parameters, mapping, childDS, volunteerDS),
+    [parameters, mapping, childDS, volunteerDS],
+  );
+  const breakdown = scoreBreakdown(
+    childDS.rows[childIdx],
+    volunteerDS.rows[volunteerIdx],
+    parameters,
+    mapping,
+    ctx,
+  );
+  const contributing = breakdown.filter((b) => b.value !== null && b.value > 0);
+  const top = [...contributing].sort((a, b) => (b.value! - a.value!)).slice(0, 4);
+
+  return (
+    <HoverCard openDelay={120} closeDelay={80}>
+      <HoverCardTrigger asChild>
+        <button
+          type="button"
+          className="cursor-help"
+          onClick={(e) => e.stopPropagation()}
+          aria-label="הסבר ציון התאמה"
+        >
+          <MatchBadge score={score} />
+        </button>
+      </HoverCardTrigger>
+      <HoverCardContent align="start" side="top" className="w-72" dir="rtl">
+        <p className="mb-2 text-xs font-bold tracking-wider text-muted-foreground">בסיס ההתאמה</p>
+        {top.length === 0 ? (
+          <p className="text-xs text-muted-foreground">לא נמצאו קריטריונים חופפים.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {top.map(({ param, value }) => (
+              <li key={param.id} className="flex items-center justify-between gap-2 text-xs">
+                <span className="truncate text-foreground">{param.name}</span>
+                <span className="font-mono tabular-nums text-muted-foreground">
+                  {Math.round((value ?? 0) * 100)}% · משקל {param.weight}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {breakdown.some((b) => b.value === 0) && (
+          <p className="mt-2 border-t border-border pt-2 text-[11px] text-muted-foreground">
+            קריטריונים שלא חפפו: {breakdown.filter((b) => b.value === 0).map((b) => b.param.name).join(", ")}
+          </p>
+        )}
+      </HoverCardContent>
+    </HoverCard>
+  );
 }

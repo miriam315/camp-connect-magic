@@ -5,6 +5,7 @@ import type {
   Row,
   Assignment,
 } from "./types";
+import { normalizeOne, normalizeMulti } from "./normalize";
 
 export function scoreTier(score: number): "high" | "med" | "low" {
   if (score >= 80) return "high";
@@ -12,12 +13,7 @@ export function scoreTier(score: number): "high" | "med" | "low" {
   return "low";
 }
 
-const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
-const splitMulti = (v: unknown) =>
-  String(v ?? "")
-    .split(/[,،\/|;]+/)
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
+const lower = (v: unknown) => String(v ?? "").trim().toLowerCase();
 
 /** Pre-computed range per "numeric" parameter, used to normalize closeness. */
 export interface ScoreContext {
@@ -32,11 +28,11 @@ export function buildContext(
 ): ScoreContext {
   const ranges: Record<string, number> = {};
   for (const p of parameters) {
-    if (p.type !== "numeric" && p.type !== "gte") continue;
+    if (p.type !== "numeric" && p.type !== "gte" && p.type !== "reward") continue;
     const m = mapping[p.id];
     if (!m) continue;
     const vals: number[] = [];
-    if (m.childCol) {
+    if (m.childCol && p.type !== "reward") {
       for (const r of childDS.rows) {
         const n = Number(r[m.childCol]);
         if (Number.isFinite(n)) vals.push(n);
@@ -66,17 +62,40 @@ function scoreParam(
   ctx: ScoreContext,
 ): number | null {
   const m = mapping[p.id];
-  if (!m || !m.childCol || !m.volunteerCol) return null;
+  if (!m) return null;
+
+  // Flexible constraint: enforced for numeric/gte/reward types using the volunteer-side column.
+  if (p.constraint && m.volunteerCol) {
+    const vNum = Number(volunteer[m.volunteerCol]);
+    if (Number.isFinite(vNum)) {
+      if (p.constraint.kind === "maxVolunteer" && vNum > p.constraint.value) return 0;
+      if (p.constraint.kind === "minVolunteer" && vNum < p.constraint.value) return 0;
+    }
+  }
+
+  // Reward is volunteer-side only.
+  if (p.type === "reward") {
+    if (!m.volunteerCol) return null;
+    const v = Number(volunteer[m.volunteerCol]);
+    if (!Number.isFinite(v)) return null;
+    const range = ctx.ranges[p.id] || 1;
+    return Math.max(0, Math.min(1, v / range));
+  }
+
+  if (!m.childCol || !m.volunteerCol) return null;
   const cv = child[m.childCol];
   const vv = volunteer[m.volunteerCol];
   if (cv === undefined || vv === undefined || cv === "" || vv === "") return null;
 
   switch (p.type) {
-    case "categorical":
-      return norm(cv) === norm(vv) ? 1 : 0;
+    case "categorical": {
+      const a = normalizeOne(p, String(cv)).toLowerCase();
+      const b = normalizeOne(p, String(vv)).toLowerCase();
+      return a && b && a === b ? 1 : 0;
+    }
     case "multi": {
-      const a = new Set(splitMulti(cv));
-      const b = new Set(splitMulti(vv));
+      const a = new Set(normalizeMulti(p, String(cv)).map(lower));
+      const b = new Set(normalizeMulti(p, String(vv)).map(lower));
       if (a.size === 0) return 0;
       let hit = 0;
       a.forEach((x) => b.has(x) && hit++);

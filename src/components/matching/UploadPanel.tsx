@@ -9,6 +9,7 @@ import {
   parseFileToDataset,
 } from "@/lib/matching/parse";
 import { MappingPanel } from "./MappingPanel";
+import { ValidationPanel } from "./ValidationPanel";
 
 export function UploadPanel() {
   const childDS = useAppStore((s) => s.childDS);
@@ -73,6 +74,7 @@ export function UploadPanel() {
       </div>
 
       <MappingPanel />
+      <ValidationPanel />
     </div>
   );
 }

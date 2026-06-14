@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Assignment, Dataset, Mapping, Parameter } from "./types";
 import { autoMatch, buildContext, scorePair } from "./score";
+import { validateDatasets, type ValidationIssue } from "./normalize";
 import {
   defaultMapping,
   defaultParameters,
@@ -19,6 +20,8 @@ interface AppState {
   // parameters
   addParameter: () => void;
   updateParameter: (id: string, patch: Partial<Parameter>) => void;
+  addSynonym: (id: string, raw: string, canonical: string) => void;
+  removeSynonym: (id: string, raw: string) => void;
   removeParameter: (id: string) => void;
   resetParameters: () => void;
 
@@ -35,6 +38,9 @@ interface AppState {
   assignManual: (childIdx: number, volunteerIdx: number) => void;
   unassignChild: (childIdx: number) => void;
   clearAssignments: () => void;
+
+  // selectors
+  validationIssues: () => ValidationIssue[];
 }
 
 const initialChild = generateMockChildren();
@@ -60,6 +66,24 @@ export const useAppStore = create<AppState>()(
       updateParameter: (id, patch) =>
         set((s) => ({
           parameters: s.parameters.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+        })),
+
+      addSynonym: (id, raw, canonical) =>
+        set((s) => ({
+          parameters: s.parameters.map((p) =>
+            p.id === id
+              ? { ...p, synonyms: { ...(p.synonyms ?? {}), [raw.trim().toLowerCase()]: canonical.trim() } }
+              : p,
+          ),
+        })),
+
+      removeSynonym: (id, raw) =>
+        set((s) => ({
+          parameters: s.parameters.map((p) => {
+            if (p.id !== id || !p.synonyms) return p;
+            const { [raw]: _drop, ...rest } = p.synonyms;
+            return { ...p, synonyms: rest };
+          }),
         })),
 
       removeParameter: (id) =>
@@ -131,10 +155,15 @@ export const useAppStore = create<AppState>()(
         set((s) => ({ assignments: s.assignments.filter((a) => a.childIdx !== childIdx) })),
 
       clearAssignments: () => set({ assignments: [] }),
+
+      validationIssues: () => {
+        const s = get();
+        return validateDatasets(s.parameters, s.mapping, s.childDS, s.volunteerDS);
+      },
     }),
     {
-      name: "tsamid.matching.v3",
-      version: 1,
+      name: "tsamid.matching.v4",
+      version: 2,
     },
   ),
 );

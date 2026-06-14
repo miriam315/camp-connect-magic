@@ -10,13 +10,26 @@ export type ParamType =
   | "categorical" // exact equality (e.g., city, language)
   | "multi"       // comma/semicolon-separated lists; score by intersection
   | "numeric"     // closer values = better (e.g., age proximity)
-  | "gte";        // volunteer value >= child value (e.g., medical skill level)
+  | "gte"         // volunteer value >= child value (e.g., medical skill level)
+  | "reward";     // volunteer-side numeric used as a bonus (e.g., גמול)
 
 export interface Parameter {
   id: string;
   name: string;     // Hebrew label shown to user
   type: ParamType;
   weight: number;   // 1..10
+  /** Canonical allowed values used for validation (categorical/multi). */
+  allowedValues?: string[];
+  /** Raw → canonical mapping (lower-cased keys). Applied before scoring. */
+  synonyms?: Record<string, string>;
+  /**
+   * Optional flexible constraint applied per pair.
+   * Example: "no volunteer over age 9" → { kind: 'maxVolunteer', value: 9 }.
+   * "Flexible" means it zeroes this parameter's score only — it does not block assignment.
+   */
+  constraint?:
+    | { kind: "maxVolunteer"; value: number }
+    | { kind: "minVolunteer"; value: number };
 }
 
 export interface SideMapping {
