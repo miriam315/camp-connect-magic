@@ -12,6 +12,7 @@ const typeLabels: Record<ParamType, string> = {
   multi: "רשימה (חיתוך)",
   numeric: "קרבה מספרית",
   gte: "מתנדב ≥ ילד (כשירות)",
+  reward: "גמול / בונוס (מתנדב)",
 };
 
 const typeHints: Record<ParamType, string> = {
@@ -20,6 +21,7 @@ const typeHints: Record<ParamType, string> = {
   multi: "ערכים מופרדים בפסיק/נקודה־פסיק. הציון לפי גודל החיתוך.",
   numeric: "ערכים מספריים — ככל שההפרש קטן יותר, הציון גבוה יותר.",
   gte: "מתאים לכשירויות (למשל רמה רפואית): המתנדב צריך לעמוד או לעלות על דרישת הילד.",
+  reward: "ערך מספרי בצד המתנדב (כגון גמול/ניסיון) — מוסיף משקל חיובי להתאמה.",
 };
 
 export function SettingsPanel() {
