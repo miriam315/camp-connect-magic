@@ -154,7 +154,7 @@ export function scoreBreakdown(
   ctx: ScoreContext,
 ): Array<{ param: Parameter; value: number | null }> {
   return parameters
-    .filter((p) => p.type !== "name")
+    .filter((p) => p.type !== "name" && p.enabled !== false)
     .map((p) => ({ param: p, value: scoreParam(p, child, volunteer, mapping, ctx) }));
 }
 
