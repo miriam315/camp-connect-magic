@@ -59,7 +59,7 @@ export const useAppStore = create<AppState>()(
         set((s) => ({
           parameters: [
             ...s.parameters,
-            { id: `p-${Date.now()}`, name: "קריטריון חדש", type: "categorical", weight: 5 },
+            { id: `p-${Date.now()}`, name: "קריטריון חדש", type: "categorical", weight: 5, enabled: true },
           ],
         })),
 
