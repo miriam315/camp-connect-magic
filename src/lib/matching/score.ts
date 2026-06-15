@@ -88,7 +88,8 @@ function scoreParam(
   if (cv === undefined || vv === undefined || cv === "" || vv === "") return null;
 
   switch (p.type) {
-    case "categorical": {
+    case "categorical":
+    case "range": {
       const a = normalizeOne(p, String(cv)).toLowerCase();
       const b = normalizeOne(p, String(vv)).toLowerCase();
       return a && b && a === b ? 1 : 0;
