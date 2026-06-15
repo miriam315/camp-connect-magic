@@ -163,7 +163,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "tsamid.matching.v4",
-      version: 2,
+      version: 3,
     },
   ),
 );
