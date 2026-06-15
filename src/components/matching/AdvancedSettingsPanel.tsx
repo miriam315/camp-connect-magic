@@ -53,6 +53,7 @@ function ParamCard({ param: p }: { param: Parameter }) {
   const [synCanonical, setSynCanonical] = useState("");
 
   const supportsAllowed = p.type === "categorical" || p.type === "multi";
+  const supportsRanges = p.type === "range";
   const supportsConstraint = p.type === "numeric" || p.type === "gte" || p.type === "reward";
 
   return (
@@ -117,6 +118,8 @@ function ParamCard({ param: p }: { param: Parameter }) {
           </div>
         </section>
       )}
+
+      {supportsRanges && <RangesEditor param={p} />}
 
       {supportsAllowed && (
         <section className="mb-5">
@@ -189,6 +192,8 @@ function ParamCard({ param: p }: { param: Parameter }) {
           </div>
         </section>
       )}
+
+      {supportsRanges && <RangeSynonymsEditor param={p} />}
 
       {supportsConstraint && (
         <section>
