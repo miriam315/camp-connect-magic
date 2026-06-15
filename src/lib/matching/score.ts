@@ -135,6 +135,7 @@ export function scorePair(
   let weighted = 0;
   for (const p of parameters) {
     if (p.type === "name") continue;
+    if (p.enabled === false) continue;
     const s = scoreParam(p, child, volunteer, mapping, ctx);
     if (s === null) continue;
     totalWeight += p.weight;
