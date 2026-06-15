@@ -6,10 +6,28 @@ const splitMulti = (v: unknown) =>
     .map((s) => s.trim())
     .filter(Boolean);
 
+/** For `range` parameters: bucket a numeric value into the matching label. */
+export function bucketize(p: Parameter, raw: string): string | null {
+  if (!p.ranges?.length) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  for (const r of p.ranges) {
+    if (n >= r.min && n <= r.max) return r.label;
+  }
+  return null;
+}
+
 /** Apply synonyms map (case-insensitive) to a raw value, returning canonical form. */
 export function normalizeOne(p: Parameter, raw: string): string {
   const key = raw.trim().toLowerCase();
   if (!key) return "";
+  // Range params: numeric → bucket label first, then synonym.
+  if (p.type === "range") {
+    const bucket = bucketize(p, raw);
+    if (bucket) return bucket;
+    const canonical = p.synonyms?.[key];
+    return canonical ?? raw.trim();
+  }
   const canonical = p.synonyms?.[key];
   return canonical ?? raw.trim();
 }
@@ -42,9 +60,14 @@ export function validateDatasets(
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   for (const p of parameters) {
-    if (!p.allowedValues?.length) continue;
     if (p.type === "name" || p.type === "numeric" || p.type === "gte" || p.type === "reward") continue;
-    const allowed = new Set(p.allowedValues.map((s) => s.trim().toLowerCase()));
+    // Effective allowed set = explicit allowedValues ∪ range bucket labels.
+    const allowedList = [
+      ...(p.allowedValues ?? []),
+      ...((p.type === "range" ? p.ranges?.map((r) => r.label) : undefined) ?? []),
+    ];
+    if (!allowedList.length) continue;
+    const allowed = new Set(allowedList.map((s) => s.trim().toLowerCase()));
     const m = mapping[p.id];
     const scan = (side: "child" | "volunteer", ds: Dataset, col?: string) => {
       if (!col) return;
