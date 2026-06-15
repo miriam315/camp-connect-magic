@@ -2,9 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { X, Plus, Sparkles } from "lucide-react";
+import { X, Plus, Sparkles, Trash2, RotateCcw } from "lucide-react";
 import { useAppStore } from "@/lib/matching/store";
-import type { Parameter } from "@/lib/matching/types";
+import type { Parameter, ParamType } from "@/lib/matching/types";
 import type { RangeBucket } from "@/lib/matching/types";
 
 /**
@@ -15,24 +15,43 @@ import type { RangeBucket } from "@/lib/matching/types";
 export function AdvancedSettingsPanel() {
   const parameters = useAppStore((s) => s.parameters);
   const runAutoMatch = useAppStore((s) => s.runAutoMatch);
+  const addParameter = useAppStore((s) => s.addParameter);
+  const resetParameters = useAppStore((s) => s.resetParameters);
 
   const editable = parameters.filter((p) => p.type !== "name");
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="rounded-2xl border border-border bg-card p-6">
-        <h2 className="text-lg font-bold text-foreground">מיפוי וערכים תקניים (Advanced)</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          הגדירו לכל קריטריון רשימת ערכים תקנית, מיפוי מילים נרדפות (למשל
-          <span className="font-mono"> "ת. ד." → "תסמונת דאון"</span>), ואילוצים גמישים כמו
-          "אין מתנדבים מעל גיל 9". המנוע יבצע נורמליזציה לפני חישוב הציון.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-foreground">מיפוי וערכים תקניים (Advanced)</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              הוסיפו, ערכו או מחקו קריטריונים. לכל קריטריון: רשימת ערכים תקנית, מיפוי מילים
+              נרדפות (למשל <span className="font-mono">"ת. ד." → "תסמונת דאון"</span>) ואילוצים
+              גמישים כמו "אין מתנדבים מעל גיל 9". המנוע יבצע נורמליזציה לפני חישוב הציון.
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Button size="sm" variant="outline" className="gap-1" onClick={resetParameters}>
+              <RotateCcw className="size-4" /> איפוס
+            </Button>
+            <Button size="sm" className="gap-1" onClick={addParameter}>
+              <Plus className="size-4" /> קריטריון חדש
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-4">
         {editable.map((p) => (
           <ParamCard key={p.id} param={p} />
         ))}
+        {editable.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
+            אין קריטריונים. הוסיפו אחד כדי להתחיל.
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end">
@@ -48,6 +67,7 @@ function ParamCard({ param: p }: { param: Parameter }) {
   const updateParameter = useAppStore((s) => s.updateParameter);
   const addSynonym = useAppStore((s) => s.addSynonym);
   const removeSynonym = useAppStore((s) => s.removeSynonym);
+  const removeParameter = useAppStore((s) => s.removeParameter);
 
   const [newAllowed, setNewAllowed] = useState("");
   const [synRaw, setSynRaw] = useState("");
@@ -59,9 +79,60 @@ function ParamCard({ param: p }: { param: Parameter }) {
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-base font-bold text-foreground">{p.name}</h3>
-        <span className="font-mono text-xs text-muted-foreground">{p.type}</span>
+      <div className="mb-4 grid grid-cols-[1fr_180px_140px_auto] items-end gap-3">
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-muted-foreground">שם הקריטריון</label>
+          <Input
+            className="h-9"
+            value={p.name}
+            onChange={(e) => updateParameter(p.id, { name: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-muted-foreground">סוג</label>
+          <Select
+            dir="rtl"
+            value={p.type}
+            onValueChange={(v) => updateParameter(p.id, { type: v as ParamType })}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="categorical">קטגוריאלי</SelectItem>
+              <SelectItem value="multi">רב-ערכי</SelectItem>
+              <SelectItem value="numeric">מספרי (קרבה)</SelectItem>
+              <SelectItem value="gte">סף מינימלי (≥)</SelectItem>
+              <SelectItem value="reward">בונוס (מתנדב)</SelectItem>
+              <SelectItem value="range">טווח / קטגוריה</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-muted-foreground">משקל (1–10)</label>
+          <Input
+            type="number"
+            min={1}
+            max={10}
+            className="h-9"
+            value={p.weight}
+            onChange={(e) =>
+              updateParameter(p.id, {
+                weight: Math.max(1, Math.min(10, Number(e.target.value) || 1)),
+              })
+            }
+          />
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="gap-1 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={() => {
+            if (confirm(`למחוק את הקריטריון "${p.name}"?`)) removeParameter(p.id);
+          }}
+        >
+          <Trash2 className="size-4" /> מחק
+        </Button>
       </div>
 
       {supportsAllowed && (
