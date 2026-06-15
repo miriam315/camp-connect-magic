@@ -252,3 +252,191 @@ function ParamCard({ param: p }: { param: Parameter }) {
     </div>
   );
 }
+
+function RangesEditor({ param: p }: { param: Parameter }) {
+  const updateParameter = useAppStore((s) => s.updateParameter);
+  const [label, setLabel] = useState("");
+  const [min, setMin] = useState("");
+  const [max, setMax] = useState("");
+
+  const ranges = p.ranges ?? [];
+
+  const update = (next: RangeBucket[]) => updateParameter(p.id, { ranges: next });
+
+  const add = () => {
+    const minN = Number(min);
+    const maxN = Number(max);
+    if (!label.trim() || !Number.isFinite(minN) || !Number.isFinite(maxN)) return;
+    update([...ranges, { label: label.trim(), min: minN, max: maxN }]);
+    setLabel("");
+    setMin("");
+    setMax("");
+  };
+
+  return (
+    <section className="mb-5">
+      <label className="mb-2 block text-xs font-semibold text-muted-foreground">
+        טווחים / קטגוריות (המערכת תמיר מספרים לקטגוריה לפי טווחים אלה)
+      </label>
+      <div className="overflow-hidden rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40 text-xs text-muted-foreground">
+            <tr>
+              <th className="px-3 py-1.5 text-right font-semibold">שם הקטגוריה</th>
+              <th className="px-3 py-1.5 text-right font-semibold">מינימום</th>
+              <th className="px-3 py-1.5 text-right font-semibold">מקסימום</th>
+              <th className="w-10" />
+            </tr>
+          </thead>
+          <tbody>
+            {ranges.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-3 py-3 text-center text-xs text-muted-foreground">
+                  לא הוגדרו טווחים. הוסיפו לפחות אחד כדי להפעיל את המנוע.
+                </td>
+              </tr>
+            )}
+            {ranges.map((r, idx) => (
+              <tr key={`${r.label}-${idx}`} className="border-t border-border first:border-t-0">
+                <td className="px-3 py-1.5 font-medium">
+                  <Input
+                    className="h-8"
+                    value={r.label}
+                    onChange={(e) => {
+                      const next = [...ranges];
+                      next[idx] = { ...r, label: e.target.value };
+                      update(next);
+                    }}
+                  />
+                </td>
+                <td className="px-3 py-1.5">
+                  <Input
+                    className="h-8 w-24"
+                    type="number"
+                    value={r.min}
+                    onChange={(e) => {
+                      const next = [...ranges];
+                      next[idx] = { ...r, min: Number(e.target.value) };
+                      update(next);
+                    }}
+                  />
+                </td>
+                <td className="px-3 py-1.5">
+                  <Input
+                    className="h-8 w-24"
+                    type="number"
+                    value={r.max}
+                    onChange={(e) => {
+                      const next = [...ranges];
+                      next[idx] = { ...r, max: Number(e.target.value) };
+                      update(next);
+                    }}
+                  />
+                </td>
+                <td className="w-10 px-2">
+                  <button
+                    onClick={() => update(ranges.filter((_, i) => i !== idx))}
+                    className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+                    aria-label="הסר טווח"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-2 grid grid-cols-[1fr_120px_120px_auto] items-center gap-2">
+        <Input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="שם (למשל 'קטן')"
+          className="h-9"
+        />
+        <Input
+          type="number"
+          value={min}
+          onChange={(e) => setMin(e.target.value)}
+          placeholder="מינימום"
+          className="h-9"
+        />
+        <Input
+          type="number"
+          value={max}
+          onChange={(e) => setMax(e.target.value)}
+          placeholder="מקסימום"
+          className="h-9"
+        />
+        <Button size="sm" className="gap-1" onClick={add}>
+          <Plus className="size-4" /> הוסף
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function RangeSynonymsEditor({ param: p }: { param: Parameter }) {
+  const addSynonym = useAppStore((s) => s.addSynonym);
+  const removeSynonym = useAppStore((s) => s.removeSynonym);
+  const [raw, setRaw] = useState("");
+  const [canonical, setCanonical] = useState("");
+  const labels = (p.ranges ?? []).map((r) => r.label);
+  if (!labels.length) return null;
+
+  return (
+    <section className="mb-5">
+      <label className="mb-2 block text-xs font-semibold text-muted-foreground">
+        מילים נרדפות לקטגוריות (Raw → קטגוריה)
+      </label>
+      <div className="overflow-hidden rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <tbody>
+            {Object.entries(p.synonyms ?? {}).map(([r, c]) => (
+              <tr key={r} className="border-t border-border first:border-t-0">
+                <td className="px-3 py-1.5 font-mono text-xs">{r}</td>
+                <td className="px-3 py-1.5 text-muted-foreground">→</td>
+                <td className="px-3 py-1.5 font-medium">{c}</td>
+                <td className="w-10 px-2">
+                  <button
+                    onClick={() => removeSynonym(p.id, r)}
+                    className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+                    aria-label="הסר מיפוי"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-2 grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2">
+        <Input value={raw} onChange={(e) => setRaw(e.target.value)} placeholder="ערך גולמי (למשל 'Small')" className="h-9" />
+        <span className="text-muted-foreground">→</span>
+        <Select dir="rtl" value={canonical} onValueChange={setCanonical}>
+          <SelectTrigger className="h-9">
+            <SelectValue placeholder="קטגוריה…" />
+          </SelectTrigger>
+          <SelectContent>
+            {labels.map((l) => (
+              <SelectItem key={l} value={l}>{l}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          size="sm"
+          className="gap-1"
+          onClick={() => {
+            if (!raw.trim() || !canonical.trim()) return;
+            addSynonym(p.id, raw, canonical);
+            setRaw("");
+            setCanonical("");
+          }}
+        >
+          <Plus className="size-4" /> הוסף
+        </Button>
+      </div>
+    </section>
+  );
+}
