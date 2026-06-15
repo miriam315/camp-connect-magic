@@ -79,8 +79,8 @@ function ParamCard({ param: p }: { param: Parameter }) {
   const supportsConstraint = p.type === "numeric" || p.type === "gte" || p.type === "reward";
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <div className="mb-4 grid grid-cols-[1fr_180px_140px_auto] items-end gap-3">
+    <div className={`rounded-2xl border border-border bg-card p-5 ${p.enabled === false ? "opacity-60" : ""}`}>
+      <div className="mb-4 grid grid-cols-[1fr_180px_120px_auto_auto] items-end gap-3">
         <div>
           <label className="mb-1 block text-xs font-semibold text-muted-foreground">שם הקריטריון</label>
           <Input
@@ -116,12 +116,21 @@ function ParamCard({ param: p }: { param: Parameter }) {
             min={1}
             max={10}
             className="h-9"
+            disabled={p.enabled === false}
             value={p.weight}
             onChange={(e) =>
               updateParameter(p.id, {
                 weight: Math.max(1, Math.min(10, Number(e.target.value) || 1)),
               })
             }
+          />
+        </div>
+        <div className="flex flex-col items-center gap-1 pb-1">
+          <label className="text-[10px] font-semibold text-muted-foreground whitespace-nowrap">בחר משקל</label>
+          <Switch
+            checked={p.enabled !== false}
+            onCheckedChange={(checked) => updateParameter(p.id, { enabled: checked })}
+            aria-label="כולל בחישוב"
           />
         </div>
         <Button
