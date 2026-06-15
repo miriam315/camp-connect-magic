@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { X, Plus, Sparkles } from "lucide-react";
 import { useAppStore } from "@/lib/matching/store";
 import type { Parameter } from "@/lib/matching/types";
+import type { RangeBucket } from "@/lib/matching/types";
 
 /**
  * Advanced configuration: per-parameter allowed values, synonyms, and a
