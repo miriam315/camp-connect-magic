@@ -13,6 +13,7 @@ const typeLabels: Record<ParamType, string> = {
   numeric: "קרבה מספרית",
   gte: "מתנדב ≥ ילד (כשירות)",
   reward: "גמול / בונוס (מתנדב)",
+  range: "טווח / קטגוריה",
 };
 
 const typeHints: Record<ParamType, string> = {
@@ -22,6 +23,7 @@ const typeHints: Record<ParamType, string> = {
   numeric: "ערכים מספריים — ככל שההפרש קטן יותר, הציון גבוה יותר.",
   gte: "מתאים לכשירויות (למשל רמה רפואית): המתנדב צריך לעמוד או לעלות על דרישת הילד.",
   reward: "ערך מספרי בצד המתנדב (כגון גמול/ניסיון) — מוסיף משקל חיובי להתאמה.",
+  range: "המערכת ממירה מספר לקטגוריה לפי טווחים מוגדרים (למשל גיל 0–9 = 'קטן'). התאמה לפי שם הקטגוריה.",
 };
 
 export function SettingsPanel() {
