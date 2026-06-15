@@ -28,6 +28,7 @@ export function buildContext(
 ): ScoreContext {
   const ranges: Record<string, number> = {};
   for (const p of parameters) {
+    if (p.enabled === false) continue;
     if (p.type !== "numeric" && p.type !== "gte" && p.type !== "reward") continue;
     const m = mapping[p.id];
     if (!m) continue;
