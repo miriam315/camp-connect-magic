@@ -48,9 +48,15 @@ export const defaultParameters: Parameter[] = [
   {
     id: "p-age",
     name: "גיל",
-    type: "numeric",
+    type: "range",
     weight: 4,
-    // flexible default: discourage volunteers older than 30 vs. children (per pair)
+    ranges: [
+      { label: "קטן (0-9)", min: 0, max: 9 },
+      { label: "בינוני (10-15)", min: 10, max: 15 },
+      { label: "נוער (16-21)", min: 16, max: 21 },
+      { label: "בוגר (22-35)", min: 22, max: 35 },
+      { label: "מבוגר (36+)", min: 36, max: 200 },
+    ],
   },
   {
     id: "p-reward",
