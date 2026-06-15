@@ -28,6 +28,7 @@ export function buildContext(
 ): ScoreContext {
   const ranges: Record<string, number> = {};
   for (const p of parameters) {
+    if (p.enabled === false) continue;
     if (p.type !== "numeric" && p.type !== "gte" && p.type !== "reward") continue;
     const m = mapping[p.id];
     if (!m) continue;
@@ -134,6 +135,7 @@ export function scorePair(
   let weighted = 0;
   for (const p of parameters) {
     if (p.type === "name") continue;
+    if (p.enabled === false) continue;
     const s = scoreParam(p, child, volunteer, mapping, ctx);
     if (s === null) continue;
     totalWeight += p.weight;
@@ -152,7 +154,7 @@ export function scoreBreakdown(
   ctx: ScoreContext,
 ): Array<{ param: Parameter; value: number | null }> {
   return parameters
-    .filter((p) => p.type !== "name")
+    .filter((p) => p.type !== "name" && p.enabled !== false)
     .map((p) => ({ param: p, value: scoreParam(p, child, volunteer, mapping, ctx) }));
 }
 

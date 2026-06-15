@@ -26,6 +26,8 @@ export interface Parameter {
   name: string;     // Hebrew label shown to user
   type: ParamType;
   weight: number;   // 1..10
+  /** Whether this parameter participates in scoring. */
+  enabled?: boolean;
   /** Canonical allowed values used for validation (categorical/multi). */
   allowedValues?: string[];
   /** Raw → canonical mapping (lower-cased keys). Applied before scoring. */

@@ -11,6 +11,7 @@ export const defaultParameters: Parameter[] = [
     name: "מוגבלות",
     type: "categorical",
     weight: 10,
+    enabled: true,
     allowedValues: ["תסמונת דאון", "אוטיזם", "שיתוק מוחין", "פיגור שכלי", "ADHD"],
     synonyms: {
       "ת.ד.": "תסמונת דאון",
@@ -30,6 +31,7 @@ export const defaultParameters: Parameter[] = [
     name: "רמת קושי",
     type: "categorical",
     weight: 8,
+    enabled: true,
     allowedValues: ["קל", "בינוני", "מורכב"],
     synonyms: {
       "small": "קל",
@@ -43,13 +45,14 @@ export const defaultParameters: Parameter[] = [
       "complex": "מורכב",
     },
   },
-  { id: "p-language", name: "שפה", type: "categorical", weight: 6 },
-  { id: "p-city", name: "עיר", type: "categorical", weight: 5 },
+  { id: "p-language", name: "שפה", type: "categorical", weight: 6, enabled: true },
+  { id: "p-city", name: "עיר", type: "categorical", weight: 5, enabled: true },
   {
     id: "p-age",
     name: "גיל",
     type: "range",
     weight: 4,
+    enabled: true,
     ranges: [
       { label: "קטן (0-9)", min: 0, max: 9 },
       { label: "בינוני (10-15)", min: 10, max: 15 },
@@ -63,6 +66,7 @@ export const defaultParameters: Parameter[] = [
     name: "גמול / ניסיון",
     type: "reward",
     weight: 3,
+    enabled: true,
   },
 ];
 
