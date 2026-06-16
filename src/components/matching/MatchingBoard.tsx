@@ -250,8 +250,11 @@ export function MatchingBoard() {
             <Button variant="outline" size="sm" className="gap-2" onClick={handleRunMatch}>
               <Sparkles className="size-4" /> שיבוץ חכם
             </Button>
-            <Button size="sm" className="gap-2" onClick={exportCsv}>
-              <Download className="size-4" /> יצוא CSV
+            <Button size="sm" variant="outline" className="gap-2" onClick={exportExcel}>
+              <FileSpreadsheet className="size-4" /> ייצוא לאקסל
+            </Button>
+            <Button size="sm" className="gap-2" onClick={exportPdf}>
+              <FileText className="size-4" /> ייצוא PDF
             </Button>
           </div>
         </div>
