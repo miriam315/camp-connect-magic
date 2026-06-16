@@ -108,40 +108,97 @@ export function MatchingBoard() {
     toast.success("השיבוץ החכם הושלם");
   };
 
-  const exportCsv = () => {
-    const cols = ["ילד", ...parameters.filter((p) => p.type !== "name").map((p) => `ילד · ${p.name}`),
-      "מתנדב",
-      ...parameters.filter((p) => p.type !== "name").map((p) => `מתנדב · ${p.name}`),
-      "ציון התאמה",
-    ];
-    const rows: string[][] = [cols];
-    childDS.rows.forEach((cRow, i) => {
-      const a = assignmentByChild.get(i);
-      const vRow = a ? volunteerDS.rows[a.volunteerIdx] : null;
-      const line: string[] = [childName(i)];
-      parameters.forEach((p) => {
-        if (p.type === "name") return;
-        const col = mapping[p.id]?.childCol;
-        line.push(col ? String(cRow[col] ?? "") : "");
-      });
-      line.push(a ? String(volName(a.volunteerIdx)) : "—");
-      parameters.forEach((p) => {
-        if (p.type === "name") return;
-        const col = mapping[p.id]?.volunteerCol;
-        line.push(col && vRow ? String(vRow[col] ?? "") : "");
-      });
-      line.push(a ? String(a.score) : "—");
-      rows.push(line);
+  // ---- Dynamic table columns + export columns ----
+  type ExtraCol = { key: string; label: string; side: "child" | "volunteer"; paramId: string };
+  const extraColumns: ExtraCol[] = useMemo(() => {
+    const list: ExtraCol[] = [];
+    parameters.forEach((p) => {
+      if (p.type === "name") return;
+      list.push({ key: `c:${p.id}`, label: `ילד · ${p.name}`, side: "child", paramId: p.id });
+      list.push({ key: `v:${p.id}`, label: `מתנדב · ${p.name}`, side: "volunteer", paramId: p.id });
     });
-    const csv = rows.map((r) => r.map((f) => `"${f.replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "שיבוצים.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-    toast.success("השיבוץ יוצא בהצלחה");
+    return list;
+  }, [parameters]);
+
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(new Set());
+  const toggleCol = (k: string) =>
+    setVisibleCols((s) => {
+      const n = new Set(s);
+      n.has(k) ? n.delete(k) : n.add(k);
+      return n;
+    });
+  const shownExtras = extraColumns.filter((c) => visibleCols.has(c.key));
+
+  const valueFor = (c: ExtraCol, i: number) => {
+    if (c.side === "child") {
+      const col = mapping[c.paramId]?.childCol;
+      return col ? String(childDS.rows[i]?.[col] ?? "") : "";
+    }
+    const a = assignmentByChild.get(i);
+    if (!a) return "";
+    const col = mapping[c.paramId]?.volunteerCol;
+    return col ? String(volunteerDS.rows[a.volunteerIdx]?.[col] ?? "") : "";
+  };
+
+  const buildExportRows = () => {
+    const header = ["ילד", ...shownExtras.map((c) => c.label), "מתנדב משובץ", "ציון התאמה"];
+    const body = filteredChildIdxs.map((i) => {
+      const a = assignmentByChild.get(i);
+      return [
+        childName(i),
+        ...shownExtras.map((c) => valueFor(c, i)),
+        a ? volName(a.volunteerIdx) : "—",
+        a ? String(a.score) : "—",
+      ];
+    });
+    return [header, ...body];
+  };
+
+  const exportExcel = () => {
+    const rows = buildExportRows();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    wb.Workbook = { Views: [{ RTL: true }] };
+    XLSX.utils.book_append_sheet(wb, ws, "שיבוצים");
+    XLSX.writeFile(wb, "שיבוצים.xlsx");
+    toast.success("הקובץ יוצא לאקסל");
+  };
+
+  const exportPdf = () => {
+    const rows = buildExportRows();
+    const [head, ...body] = rows;
+    const esc = (s: string) =>
+      s.replace(/[&<>"]/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!,
+      );
+    const html = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"/>
+<title>שיבוצים</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", "Arial Hebrew", Arial, sans-serif; padding: 24px; color: #111; }
+  h1 { font-size: 18px; margin: 0 0 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: right; }
+  thead { background: #f3f4f6; }
+  @media print { body { padding: 0; } }
+</style></head><body>
+<h1>שיבוצים — ${new Date().toLocaleDateString("he-IL")}</h1>
+<table>
+  <thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead>
+  <tbody>${body
+    .map((r) => `<tr>${r.map((v) => `<td>${esc(String(v))}</td>`).join("")}</tr>`)
+    .join("")}</tbody>
+</table>
+<script>window.onload=()=>{setTimeout(()=>{window.print();},250);};</script>
+</body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) {
+      toast.error("חלון הדפסה נחסם — אפשרו חלונות קופצים");
+      return;
+    }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    toast.success("נפתח חלון הדפסה — שמרו כ-PDF");
   };
 
   const suggestions = useMemo(() => {
