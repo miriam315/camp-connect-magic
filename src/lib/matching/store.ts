@@ -3,12 +3,7 @@ import { persist } from "zustand/middleware";
 import type { Assignment, Dataset, Mapping, Parameter } from "./types";
 import { autoMatch, buildContext, scorePair } from "./score";
 import { validateDatasets, type ValidationIssue } from "./normalize";
-import {
-  defaultMapping,
-  defaultParameters,
-  generateMockChildren,
-  generateMockVolunteers,
-} from "./mockData";
+import { defaultMapping, defaultParameters, emptyDataset } from "./mockData";
 
 interface AppState {
   parameters: Parameter[];
@@ -31,7 +26,7 @@ interface AppState {
   // data
   setChildDataset: (ds: Dataset) => void;
   setVolunteerDataset: (ds: Dataset) => void;
-  loadMockData: () => void;
+  clearAll: () => void;
 
   // assignments
   runAutoMatch: () => void;
@@ -43,8 +38,8 @@ interface AppState {
   validationIssues: () => ValidationIssue[];
 }
 
-const initialChild = generateMockChildren();
-const initialVol = generateMockVolunteers();
+const initialChild = emptyDataset();
+const initialVol = emptyDataset();
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -53,7 +48,7 @@ export const useAppStore = create<AppState>()(
       mapping: defaultMapping,
       childDS: initialChild,
       volunteerDS: initialVol,
-      assignments: autoMatch(initialChild, initialVol, defaultParameters, defaultMapping),
+      assignments: [],
 
       addParameter: () =>
         set((s) => ({
@@ -118,17 +113,14 @@ export const useAppStore = create<AppState>()(
           assignments: autoMatch(s.childDS, ds, s.parameters, s.mapping),
         })),
 
-      loadMockData: () => {
-        const c = generateMockChildren();
-        const v = generateMockVolunteers();
+      clearAll: () =>
         set({
-          parameters: defaultParameters,
-          mapping: defaultMapping,
-          childDS: c,
-          volunteerDS: v,
-          assignments: autoMatch(c, v, defaultParameters, defaultMapping),
-        });
-      },
+          parameters: [],
+          mapping: {},
+          childDS: emptyDataset(),
+          volunteerDS: emptyDataset(),
+          assignments: [],
+        }),
 
       runAutoMatch: () =>
         set((s) => ({
@@ -162,8 +154,8 @@ export const useAppStore = create<AppState>()(
       },
     }),
     {
-      name: "tsamid.matching.v4",
-      version: 3,
+      name: "tsamid.matching.v5",
+      version: 4,
     },
   ),
 );
