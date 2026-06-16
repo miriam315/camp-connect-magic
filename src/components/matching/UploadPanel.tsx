@@ -16,7 +16,7 @@ export function UploadPanel() {
   const volunteerDS = useAppStore((s) => s.volunteerDS);
   const setChildDataset = useAppStore((s) => s.setChildDataset);
   const setVolunteerDataset = useAppStore((s) => s.setVolunteerDataset);
-  const loadMockData = useAppStore((s) => s.loadMockData);
+  const clearAll = useAppStore((s) => s.clearAll);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -66,9 +66,9 @@ export function UploadPanel() {
         </div>
 
         <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
-          <p className="text-xs text-muted-foreground">ניתן לטעון נתוני דמו לדוגמה בכל עת.</p>
-          <Button variant="ghost" size="sm" onClick={loadMockData}>
-            טען נתוני דמו
+          <p className="text-xs text-muted-foreground">המערכת מתחילה ריקה — הגדירו קריטריונים בלשונית "מתקדם" והעלו את הקבצים שלכם.</p>
+          <Button variant="ghost" size="sm" onClick={clearAll}>
+            איפוס מלא
           </Button>
         </div>
       </div>

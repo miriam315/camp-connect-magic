@@ -1,9 +1,14 @@
 import { useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Download,
+  Columns3,
+  FileSpreadsheet,
+  FileText,
   HeartHandshake,
   LayoutGrid,
   RefreshCw,
@@ -103,40 +108,97 @@ export function MatchingBoard() {
     toast.success("השיבוץ החכם הושלם");
   };
 
-  const exportCsv = () => {
-    const cols = ["ילד", ...parameters.filter((p) => p.type !== "name").map((p) => `ילד · ${p.name}`),
-      "מתנדב",
-      ...parameters.filter((p) => p.type !== "name").map((p) => `מתנדב · ${p.name}`),
-      "ציון התאמה",
-    ];
-    const rows: string[][] = [cols];
-    childDS.rows.forEach((cRow, i) => {
-      const a = assignmentByChild.get(i);
-      const vRow = a ? volunteerDS.rows[a.volunteerIdx] : null;
-      const line: string[] = [childName(i)];
-      parameters.forEach((p) => {
-        if (p.type === "name") return;
-        const col = mapping[p.id]?.childCol;
-        line.push(col ? String(cRow[col] ?? "") : "");
-      });
-      line.push(a ? String(volName(a.volunteerIdx)) : "—");
-      parameters.forEach((p) => {
-        if (p.type === "name") return;
-        const col = mapping[p.id]?.volunteerCol;
-        line.push(col && vRow ? String(vRow[col] ?? "") : "");
-      });
-      line.push(a ? String(a.score) : "—");
-      rows.push(line);
+  // ---- Dynamic table columns + export columns ----
+  type ExtraCol = { key: string; label: string; side: "child" | "volunteer"; paramId: string };
+  const extraColumns: ExtraCol[] = useMemo(() => {
+    const list: ExtraCol[] = [];
+    parameters.forEach((p) => {
+      if (p.type === "name") return;
+      list.push({ key: `c:${p.id}`, label: `ילד · ${p.name}`, side: "child", paramId: p.id });
+      list.push({ key: `v:${p.id}`, label: `מתנדב · ${p.name}`, side: "volunteer", paramId: p.id });
     });
-    const csv = rows.map((r) => r.map((f) => `"${f.replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "שיבוצים.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-    toast.success("השיבוץ יוצא בהצלחה");
+    return list;
+  }, [parameters]);
+
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(new Set());
+  const toggleCol = (k: string) =>
+    setVisibleCols((s) => {
+      const n = new Set(s);
+      n.has(k) ? n.delete(k) : n.add(k);
+      return n;
+    });
+  const shownExtras = extraColumns.filter((c) => visibleCols.has(c.key));
+
+  const valueFor = (c: ExtraCol, i: number) => {
+    if (c.side === "child") {
+      const col = mapping[c.paramId]?.childCol;
+      return col ? String(childDS.rows[i]?.[col] ?? "") : "";
+    }
+    const a = assignmentByChild.get(i);
+    if (!a) return "";
+    const col = mapping[c.paramId]?.volunteerCol;
+    return col ? String(volunteerDS.rows[a.volunteerIdx]?.[col] ?? "") : "";
+  };
+
+  const buildExportRows = () => {
+    const header = ["ילד", ...shownExtras.map((c) => c.label), "מתנדב משובץ", "ציון התאמה"];
+    const body = filteredChildIdxs.map((i) => {
+      const a = assignmentByChild.get(i);
+      return [
+        childName(i),
+        ...shownExtras.map((c) => valueFor(c, i)),
+        a ? volName(a.volunteerIdx) : "—",
+        a ? String(a.score) : "—",
+      ];
+    });
+    return [header, ...body];
+  };
+
+  const exportExcel = () => {
+    const rows = buildExportRows();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    wb.Workbook = { Views: [{ RTL: true }] };
+    XLSX.utils.book_append_sheet(wb, ws, "שיבוצים");
+    XLSX.writeFile(wb, "שיבוצים.xlsx");
+    toast.success("הקובץ יוצא לאקסל");
+  };
+
+  const exportPdf = () => {
+    const rows = buildExportRows();
+    const [head, ...body] = rows;
+    const esc = (s: string) =>
+      s.replace(/[&<>"]/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!,
+      );
+    const html = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"/>
+<title>שיבוצים</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", "Arial Hebrew", Arial, sans-serif; padding: 24px; color: #111; }
+  h1 { font-size: 18px; margin: 0 0 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: right; }
+  thead { background: #f3f4f6; }
+  @media print { body { padding: 0; } }
+</style></head><body>
+<h1>שיבוצים — ${new Date().toLocaleDateString("he-IL")}</h1>
+<table>
+  <thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead>
+  <tbody>${body
+    .map((r) => `<tr>${r.map((v) => `<td>${esc(String(v))}</td>`).join("")}</tr>`)
+    .join("")}</tbody>
+</table>
+<script>window.onload=()=>{setTimeout(()=>{window.print();},250);};</script>
+</body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) {
+      toast.error("חלון הדפסה נחסם — אפשרו חלונות קופצים");
+      return;
+    }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    toast.success("נפתח חלון הדפסה — שמרו כ-PDF");
   };
 
   const suggestions = useMemo(() => {
@@ -188,8 +250,11 @@ export function MatchingBoard() {
             <Button variant="outline" size="sm" className="gap-2" onClick={handleRunMatch}>
               <Sparkles className="size-4" /> שיבוץ חכם
             </Button>
-            <Button size="sm" className="gap-2" onClick={exportCsv}>
-              <Download className="size-4" /> יצוא CSV
+            <Button size="sm" variant="outline" className="gap-2" onClick={exportExcel}>
+              <FileSpreadsheet className="size-4" /> ייצוא לאקסל
+            </Button>
+            <Button size="sm" className="gap-2" onClick={exportPdf}>
+              <FileText className="size-4" /> ייצוא PDF
             </Button>
           </div>
         </div>
@@ -225,22 +290,57 @@ export function MatchingBoard() {
                     {filteredChildIdxs.length}/{childDS.rows.length}
                   </span>
                 </div>
-                <div className="relative w-64">
-                  <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="חיפוש בכל העמודות…"
-                    className="h-9 pr-9"
-                  />
+                <div className="flex items-center gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Columns3 className="size-4" /> עמודות ({shownExtras.length})
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-72" dir="rtl">
+                      <p className="mb-2 text-xs font-bold tracking-wider text-muted-foreground">
+                        בחרו עמודות להצגה ולייצוא
+                      </p>
+                      {extraColumns.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">הגדירו קריטריונים בלשונית "מתקדם".</p>
+                      ) : (
+                        <div className="max-h-72 space-y-1.5 overflow-y-auto">
+                          {extraColumns.map((c) => (
+                            <label
+                              key={c.key}
+                              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted"
+                            >
+                              <Checkbox
+                                checked={visibleCols.has(c.key)}
+                                onCheckedChange={() => toggleCol(c.key)}
+                              />
+                              <span className="text-sm">{c.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                  <div className="relative w-64">
+                    <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="חיפוש בכל העמודות…"
+                      className="h-9 pr-9"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="overflow-hidden rounded-xl border border-border bg-card">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm" dir="rtl">
                   <thead className="bg-muted/40 text-xs font-semibold text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2 text-right">ילד</th>
+                      {shownExtras.map((c) => (
+                        <th key={c.key} className="px-3 py-2 text-right whitespace-nowrap">{c.label}</th>
+                      ))}
                       <th className="px-3 py-2 text-right">מתנדב משובץ</th>
                       <th className="px-3 py-2 text-right">ציון התאמה</th>
                       <th className="px-3 py-2 text-right w-12"></th>
@@ -279,6 +379,11 @@ export function MatchingBoard() {
                           <td className="px-3 py-2 font-medium text-foreground">
                             {childName(i)}
                           </td>
+                          {shownExtras.map((c) => (
+                            <td key={c.key} className="px-3 py-2 text-foreground/80 whitespace-nowrap">
+                              {valueFor(c, i) || <span className="text-muted-foreground">—</span>}
+                            </td>
+                          ))}
                           <td className="px-3 py-2">
                             {a ? (
                               <span className="text-foreground">{volName(a.volunteerIdx)}</span>
@@ -318,7 +423,7 @@ export function MatchingBoard() {
                     })}
                     {!filteredChildIdxs.length && (
                       <tr>
-                        <td colSpan={4} className="px-3 py-10 text-center text-sm text-muted-foreground">
+                        <td colSpan={4 + shownExtras.length} className="px-3 py-10 text-center text-sm text-muted-foreground">
                           לא נמצאו תוצאות.
                         </td>
                       </tr>
