@@ -1,9 +1,14 @@
 import { useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Download,
+  Columns3,
+  FileSpreadsheet,
+  FileText,
   HeartHandshake,
   LayoutGrid,
   RefreshCw,
