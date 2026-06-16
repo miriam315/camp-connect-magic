@@ -290,22 +290,57 @@ export function MatchingBoard() {
                     {filteredChildIdxs.length}/{childDS.rows.length}
                   </span>
                 </div>
-                <div className="relative w-64">
-                  <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="חיפוש בכל העמודות…"
-                    className="h-9 pr-9"
-                  />
+                <div className="flex items-center gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Columns3 className="size-4" /> עמודות ({shownExtras.length})
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-72" dir="rtl">
+                      <p className="mb-2 text-xs font-bold tracking-wider text-muted-foreground">
+                        בחרו עמודות להצגה ולייצוא
+                      </p>
+                      {extraColumns.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">הגדירו קריטריונים בלשונית "מתקדם".</p>
+                      ) : (
+                        <div className="max-h-72 space-y-1.5 overflow-y-auto">
+                          {extraColumns.map((c) => (
+                            <label
+                              key={c.key}
+                              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted"
+                            >
+                              <Checkbox
+                                checked={visibleCols.has(c.key)}
+                                onCheckedChange={() => toggleCol(c.key)}
+                              />
+                              <span className="text-sm">{c.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                  <div className="relative w-64">
+                    <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="חיפוש בכל העמודות…"
+                      className="h-9 pr-9"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="overflow-hidden rounded-xl border border-border bg-card">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm" dir="rtl">
                   <thead className="bg-muted/40 text-xs font-semibold text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2 text-right">ילד</th>
+                      {shownExtras.map((c) => (
+                        <th key={c.key} className="px-3 py-2 text-right whitespace-nowrap">{c.label}</th>
+                      ))}
                       <th className="px-3 py-2 text-right">מתנדב משובץ</th>
                       <th className="px-3 py-2 text-right">ציון התאמה</th>
                       <th className="px-3 py-2 text-right w-12"></th>
@@ -344,6 +379,11 @@ export function MatchingBoard() {
                           <td className="px-3 py-2 font-medium text-foreground">
                             {childName(i)}
                           </td>
+                          {shownExtras.map((c) => (
+                            <td key={c.key} className="px-3 py-2 text-foreground/80 whitespace-nowrap">
+                              {valueFor(c, i) || <span className="text-muted-foreground">—</span>}
+                            </td>
+                          ))}
                           <td className="px-3 py-2">
                             {a ? (
                               <span className="text-foreground">{volName(a.volunteerIdx)}</span>
@@ -383,7 +423,7 @@ export function MatchingBoard() {
                     })}
                     {!filteredChildIdxs.length && (
                       <tr>
-                        <td colSpan={4} className="px-3 py-10 text-center text-sm text-muted-foreground">
+                        <td colSpan={4 + shownExtras.length} className="px-3 py-10 text-center text-sm text-muted-foreground">
                           לא נמצאו תוצאות.
                         </td>
                       </tr>
