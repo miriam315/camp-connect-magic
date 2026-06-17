@@ -46,6 +46,7 @@ export function MatchingBoard() {
   const runAutoMatch = useAppStore((s) => s.runAutoMatch);
   const assignManual = useAppStore((s) => s.assignManual);
   const unassignChild = useAppStore((s) => s.unassignChild);
+  const wildcards = useAppStore((s) => s.wildcards);
 
   const [tab, setTab] = useState("board");
   const [search, setSearch] = useState("");
@@ -54,8 +55,8 @@ export function MatchingBoard() {
   const [selectedChildIdx, setSelectedChildIdx] = useState<number | null>(null);
 
   const ctx = useMemo(
-    () => buildContext(parameters, mapping, childDS, volunteerDS),
-    [parameters, mapping, childDS, volunteerDS],
+    () => buildContext(parameters, mapping, childDS, volunteerDS, wildcards),
+    [parameters, mapping, childDS, volunteerDS, wildcards],
   );
 
   const childNameCol = getNameColumn(parameters, mapping, "child");
@@ -206,8 +207,8 @@ export function MatchingBoard() {
     const exclude = new Set(assignedVolIdxs);
     const cur = assignmentByChild.get(selectedChildIdx)?.volunteerIdx;
     if (cur !== undefined) exclude.delete(cur);
-    return bestVolunteersFor(selectedChildIdx, childDS, volunteerDS, parameters, mapping, exclude, 5);
-  }, [selectedChildIdx, assignedVolIdxs, assignmentByChild, childDS, volunteerDS, parameters, mapping]);
+    return bestVolunteersFor(selectedChildIdx, childDS, volunteerDS, parameters, mapping, exclude, 5, wildcards);
+  }, [selectedChildIdx, assignedVolIdxs, assignmentByChild, childDS, volunteerDS, parameters, mapping, wildcards]);
 
   const dragScoreByChild = useMemo(() => {
     const m = new Map<number, number>();
@@ -563,9 +564,10 @@ function ScoreCell({
   const mapping = useAppStore((s) => s.mapping);
   const childDS = useAppStore((s) => s.childDS);
   const volunteerDS = useAppStore((s) => s.volunteerDS);
+  const wildcards = useAppStore((s) => s.wildcards);
   const ctx = useMemo(
-    () => buildContext(parameters, mapping, childDS, volunteerDS),
-    [parameters, mapping, childDS, volunteerDS],
+    () => buildContext(parameters, mapping, childDS, volunteerDS, wildcards),
+    [parameters, mapping, childDS, volunteerDS, wildcards],
   );
   const breakdown = scoreBreakdown(
     childDS.rows[childIdx],
