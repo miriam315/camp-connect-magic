@@ -448,6 +448,68 @@ function RangesEditor({ param: p }: { param: Parameter }) {
   );
 }
 
+function WildcardsCard() {
+  const wildcards = useAppStore((s) => s.wildcards);
+  const addWildcard = useAppStore((s) => s.addWildcard);
+  const removeWildcard = useAppStore((s) => s.removeWildcard);
+  const runAutoMatch = useAppStore((s) => s.runAutoMatch);
+  const [val, setVal] = useState("");
+
+  const commit = () => {
+    if (!val.trim()) return;
+    addWildcard(val);
+    setVal("");
+    runAutoMatch();
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-6">
+      <h2 className="text-lg font-bold text-foreground">ערכים גנריים (Wildcards)</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        ערכים אלה ייחשבו כ"כל ערך מתאים" בכל הקריטריונים — הם לא יורידו את הציון ולא יסומנו כשגיאת תקינות.
+        לדוגמה: "לא משנה", "לא אכפת", "הכל".
+      </p>
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        {wildcards.length === 0 && (
+          <span className="text-xs text-muted-foreground">אין ערכים גנריים מוגדרים.</span>
+        )}
+        {wildcards.map((w) => (
+          <span
+            key={w}
+            className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground"
+          >
+            {w}
+            <button
+              aria-label="הסר"
+              onClick={() => {
+                removeWildcard(w);
+                runAutoMatch();
+              }}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <X className="size-3" />
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="mt-3 flex gap-2">
+        <Input
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          placeholder="הוסיפו ערך גנרי…"
+          className="h-9 max-w-xs"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+          }}
+        />
+        <Button size="sm" variant="outline" className="gap-1" onClick={commit}>
+          <Plus className="size-4" /> הוסף
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function RangeSynonymsEditor({ param: p }: { param: Parameter }) {
   const addSynonym = useAppStore((s) => s.addSynonym);
   const removeSynonym = useAppStore((s) => s.removeSynonym);
