@@ -22,6 +22,7 @@ export function AdvancedSettingsPanel() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
+      <WildcardsCard />
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -104,6 +105,7 @@ function ParamCard({ param: p }: { param: Parameter }) {
             <option value="gte" />
             <option value="reward" />
             <option value="range" />
+            <option value="preferredName" />
           </datalist>
         </div>
         <Button
@@ -117,6 +119,22 @@ function ParamCard({ param: p }: { param: Parameter }) {
           <Trash2 className="size-4" /> מחק
         </Button>
       </div>
+
+      {p.type === "preferredName" && (
+        <section className="mb-5 rounded-lg border border-primary/20 bg-primary/5 p-3">
+          <p className="mb-2 text-xs text-muted-foreground">
+            המתנדב יכול לציין שם של ילד שהוא מעוניין בו (עמודה בקובץ המתנדבים — תומך בשמות מרובים מופרדים בפסיק).
+            כאשר מזוהה התאמה, מתווסף בונוס לציון הכולל.
+          </p>
+          <label className="mb-1 block text-xs font-semibold text-muted-foreground">בונוס (נקודות)</label>
+          <Input
+            type="number"
+            className="h-9 w-32"
+            value={p.bonusValue ?? 15}
+            onChange={(e) => updateParameter(p.id, { bonusValue: Number(e.target.value) || 0 })}
+          />
+        </section>
+      )}
 
       {supportsAllowed && (
         <section className="mb-5">
