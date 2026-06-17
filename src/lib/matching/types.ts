@@ -12,7 +12,8 @@ export type ParamType =
   | "numeric"     // closer values = better (e.g., age proximity)
   | "gte"         // volunteer value >= child value (e.g., medical skill level)
   | "reward"      // volunteer-side numeric used as a bonus (e.g., גמול)
-  | "range";      // numeric bucketed into named categories (e.g., Age → Small/Medium/Large)
+  | "range"       // numeric bucketed into named categories (e.g., Age → Small/Medium/Large)
+  | "preferredName"; // volunteer-side list of preferred child names → soft bonus on the final score
 
 /** Named numeric bucket used by `range` parameters. min/max are inclusive. */
 export interface RangeBucket {
@@ -34,6 +35,8 @@ export interface Parameter {
   synonyms?: Record<string, string>;
   /** For `range` parameters: user-defined numeric buckets (e.g., Small=0-9). */
   ranges?: RangeBucket[];
+  /** For `preferredName` parameters: how many points to add to the final score when matched (default 15). */
+  bonusValue?: number;
   /**
    * Optional flexible constraint applied per pair.
    * Example: "no volunteer over age 9" → { kind: 'maxVolunteer', value: 9 }.
