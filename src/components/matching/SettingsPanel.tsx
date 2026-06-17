@@ -14,6 +14,7 @@ const typeLabels: Record<ParamType, string> = {
   gte: "מתנדב ≥ ילד (כשירות)",
   reward: "גמול / בונוס (מתנדב)",
   range: "טווח / קטגוריה",
+  preferredName: "בקשה אישית לילד (בונוס)",
 };
 
 const typeHints: Record<ParamType, string> = {
@@ -24,6 +25,7 @@ const typeHints: Record<ParamType, string> = {
   gte: "מתאים לכשירויות (למשל רמה רפואית): המתנדב צריך לעמוד או לעלות על דרישת הילד.",
   reward: "ערך מספרי בצד המתנדב (כגון גמול/ניסיון) — מוסיף משקל חיובי להתאמה.",
   range: "המערכת ממירה מספר לקטגוריה לפי טווחים מוגדרים (למשל גיל 0–9 = 'קטן'). התאמה לפי שם הקטגוריה.",
+  preferredName: "עמודה בצד המתנדב המכילה שם/שמות של ילד/ים מועדפים. התאמה מוסיפה בונוס לציון.",
 };
 
 export function SettingsPanel() {
