@@ -57,10 +57,19 @@ export function validateDatasets(
   mapping: Mapping,
   childDS: Dataset,
   volunteerDS: Dataset,
+  wildcards: string[] = [],
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
+  const wildSet = new Set(wildcards.map((w) => w.trim().toLowerCase()).filter(Boolean));
   for (const p of parameters) {
-    if (p.type === "name" || p.type === "numeric" || p.type === "gte" || p.type === "reward") continue;
+    if (
+      p.type === "name" ||
+      p.type === "numeric" ||
+      p.type === "gte" ||
+      p.type === "reward" ||
+      p.type === "preferredName"
+    )
+      continue;
     // Effective allowed set = explicit allowedValues ∪ range bucket labels.
     const allowedList = [
       ...(p.allowedValues ?? []),
@@ -74,8 +83,11 @@ export function validateDatasets(
       ds.rows.forEach((r: Row, idx: number) => {
         const raw = String(r[col] ?? "").trim();
         if (!raw) return;
+        if (wildSet.has(raw.toLowerCase())) return;
         const tokens = p.type === "multi" ? normalizeMulti(p, raw) : [normalizeOne(p, raw)];
-        const bad = tokens.filter((t) => t && !allowed.has(t.toLowerCase()));
+        const bad = tokens.filter(
+          (t) => t && !allowed.has(t.toLowerCase()) && !wildSet.has(t.toLowerCase()),
+        );
         if (bad.length) {
           issues.push({
             side,

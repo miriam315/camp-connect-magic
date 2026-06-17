@@ -45,19 +45,24 @@ export function MappingPanel() {
           <tbody>
             {parameters.map((p) => {
               const m = mapping[p.id] ?? {};
-              const ok = !!m.childCol && !!m.volunteerCol;
+              const isPreferred = p.type === "preferredName";
+              const ok = isPreferred ? !!m.volunteerCol : !!m.childCol && !!m.volunteerCol;
               return (
                 <tr key={p.id} className="border-t border-border">
                   <td className="px-3 py-2 font-medium text-foreground">{p.name}</td>
                   <td className="px-3 py-2">
-                    <ColumnSelect
-                      columns={childDS.columns}
-                      value={m.childCol}
-                      onChange={(v) => {
-                        setMappingCell(p.id, "childCol", v);
-                        runAutoMatch();
-                      }}
-                    />
+                    {isPreferred ? (
+                      <span className="text-xs text-muted-foreground">אוטומטי · עמודת שם הילד</span>
+                    ) : (
+                      <ColumnSelect
+                        columns={childDS.columns}
+                        value={m.childCol}
+                        onChange={(v) => {
+                          setMappingCell(p.id, "childCol", v);
+                          runAutoMatch();
+                        }}
+                      />
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     <ColumnSelect

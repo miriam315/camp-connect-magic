@@ -8,6 +8,7 @@ import { defaultMapping, defaultParameters, emptyDataset } from "./mockData";
 interface AppState {
   parameters: Parameter[];
   mapping: Mapping;
+  wildcards: string[];
   childDS: Dataset;
   volunteerDS: Dataset;
   assignments: Assignment[];
@@ -19,6 +20,11 @@ interface AppState {
   removeSynonym: (id: string, raw: string) => void;
   removeParameter: (id: string) => void;
   resetParameters: () => void;
+
+  // wildcards
+  addWildcard: (value: string) => void;
+  removeWildcard: (value: string) => void;
+  setWildcards: (values: string[]) => void;
 
   // mapping
   setMappingCell: (paramId: string, side: "childCol" | "volunteerCol", value: string | undefined) => void;
@@ -38,6 +44,16 @@ interface AppState {
   validationIssues: () => ValidationIssue[];
 }
 
+const DEFAULT_WILDCARDS = [
+  "לא משנה",
+  "לא אכפת",
+  "הכל",
+  "כל אחד",
+  "any",
+  "n/a",
+  "-",
+];
+
 const initialChild = emptyDataset();
 const initialVol = emptyDataset();
 
@@ -46,6 +62,7 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       parameters: defaultParameters,
       mapping: defaultMapping,
+      wildcards: DEFAULT_WILDCARDS,
       childDS: initialChild,
       volunteerDS: initialVol,
       assignments: [],
@@ -93,6 +110,22 @@ export const useAppStore = create<AppState>()(
       resetParameters: () =>
         set({ parameters: defaultParameters, mapping: defaultMapping }),
 
+      addWildcard: (value) =>
+        set((s) => {
+          const v = value.trim();
+          if (!v) return s;
+          const exists = s.wildcards.some((w) => w.trim().toLowerCase() === v.toLowerCase());
+          if (exists) return s;
+          return { wildcards: [...s.wildcards, v] };
+        }),
+
+      removeWildcard: (value) =>
+        set((s) => ({
+          wildcards: s.wildcards.filter((w) => w.trim().toLowerCase() !== value.trim().toLowerCase()),
+        })),
+
+      setWildcards: (values) => set({ wildcards: values }),
+
       setMappingCell: (paramId, side, value) =>
         set((s) => ({
           mapping: {
@@ -104,19 +137,20 @@ export const useAppStore = create<AppState>()(
       setChildDataset: (ds) =>
         set((s) => ({
           childDS: ds,
-          assignments: autoMatch(ds, s.volunteerDS, s.parameters, s.mapping),
+          assignments: autoMatch(ds, s.volunteerDS, s.parameters, s.mapping, s.wildcards),
         })),
 
       setVolunteerDataset: (ds) =>
         set((s) => ({
           volunteerDS: ds,
-          assignments: autoMatch(s.childDS, ds, s.parameters, s.mapping),
+          assignments: autoMatch(s.childDS, ds, s.parameters, s.mapping, s.wildcards),
         })),
 
       clearAll: () =>
         set({
           parameters: [],
           mapping: {},
+          wildcards: DEFAULT_WILDCARDS,
           childDS: emptyDataset(),
           volunteerDS: emptyDataset(),
           assignments: [],
@@ -124,7 +158,7 @@ export const useAppStore = create<AppState>()(
 
       runAutoMatch: () =>
         set((s) => ({
-          assignments: autoMatch(s.childDS, s.volunteerDS, s.parameters, s.mapping),
+          assignments: autoMatch(s.childDS, s.volunteerDS, s.parameters, s.mapping, s.wildcards),
         })),
 
       assignManual: (childIdx, volunteerIdx) =>
@@ -132,7 +166,7 @@ export const useAppStore = create<AppState>()(
           const others = s.assignments.filter(
             (a) => a.childIdx !== childIdx && a.volunteerIdx !== volunteerIdx,
           );
-          const ctx = buildContext(s.parameters, s.mapping, s.childDS, s.volunteerDS);
+          const ctx = buildContext(s.parameters, s.mapping, s.childDS, s.volunteerDS, s.wildcards);
           const score = scorePair(
             s.childDS.rows[childIdx],
             s.volunteerDS.rows[volunteerIdx],
@@ -150,12 +184,19 @@ export const useAppStore = create<AppState>()(
 
       validationIssues: () => {
         const s = get();
-        return validateDatasets(s.parameters, s.mapping, s.childDS, s.volunteerDS);
+        return validateDatasets(s.parameters, s.mapping, s.childDS, s.volunteerDS, s.wildcards);
       },
     }),
     {
-      name: "tsamid.matching.v5",
-      version: 4,
+      name: "tsamid.matching.v6",
+      version: 6,
+      migrate: (persisted: any) => {
+        if (!persisted) return persisted;
+        if (!Array.isArray(persisted.wildcards) || persisted.wildcards.length === 0) {
+          persisted.wildcards = DEFAULT_WILDCARDS;
+        }
+        return persisted;
+      },
     },
   ),
 );
