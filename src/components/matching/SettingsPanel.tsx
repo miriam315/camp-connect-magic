@@ -11,22 +11,18 @@ const typeLabels: Record<ParamType, string> = {
   categorical: "התאמה מדויקת",
   multi: "רשימה (חיתוך)",
   numeric: "קרבה מספרית",
-  gte: "מתנדב ≥ ילד (כשירות)",
-  reward: "גמול / בונוס (מתנדב)",
   range: "טווח / קטגוריה",
   preferredName: "בקשה אישית לילד (בונוס)",
-};
+} as Record<ParamType, string>;
 
 const typeHints: Record<ParamType, string> = {
   name: "ערך טקסטואלי המשמש להצגת שורה (אינו משפיע על הציון).",
   categorical: "ציון מלא כאשר הערכים זהים, אחרת אפס.",
   multi: "ערכים מופרדים בפסיק/נקודה־פסיק. הציון לפי גודל החיתוך.",
   numeric: "ערכים מספריים — ככל שההפרש קטן יותר, הציון גבוה יותר.",
-  gte: "מתאים לכשירויות (למשל רמה רפואית): המתנדב צריך לעמוד או לעלות על דרישת הילד.",
-  reward: "ערך מספרי בצד המתנדב (כגון גמול/ניסיון) — מוסיף משקל חיובי להתאמה.",
   range: "המערכת ממירה מספר לקטגוריה לפי טווחים מוגדרים (למשל גיל 0–9 = 'קטן'). התאמה לפי שם הקטגוריה.",
   preferredName: "עמודה בצד המתנדב המכילה שם/שמות של ילד/ים מועדפים. התאמה מוסיפה בונוס לציון.",
-};
+} as Record<ParamType, string>;
 
 export function SettingsPanel() {
   const parameters = useAppStore((s) => s.parameters);
