@@ -76,7 +76,7 @@ function ParamCard({ param: p }: { param: Parameter }) {
 
   const supportsAllowed = p.type === "categorical" || p.type === "multi";
   const supportsRanges = p.type === "range";
-  const supportsConstraint = p.type === "numeric" || p.type === "gte" || p.type === "reward";
+  const supportsConstraint = p.type === "numeric";
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
@@ -96,14 +96,12 @@ function ParamCard({ param: p }: { param: Parameter }) {
             className="h-9"
             value={p.type}
             onChange={(e) => updateParameter(p.id, { type: (e.target.value || "categorical") as ParamType })}
-            placeholder="לדוגמה: categorical, multi, range, numeric, gte, reward"
+            placeholder="לדוגמה: categorical, multi, range, numeric"
           />
           <datalist id={`types-${p.id}`}>
             <option value="categorical" />
             <option value="multi" />
             <option value="numeric" />
-            <option value="gte" />
-            <option value="reward" />
             <option value="range" />
             <option value="preferredName" />
           </datalist>
