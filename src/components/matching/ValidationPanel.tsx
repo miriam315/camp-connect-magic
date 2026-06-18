@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAppStore } from "@/lib/matching/store";
-import { uniqueUnmappedByParam } from "@/lib/matching/normalize";
+import { uniqueUnmappedByParam, validateDatasets } from "@/lib/matching/normalize";
 import { toast } from "sonner";
 
 /**
@@ -13,10 +13,17 @@ import { toast } from "sonner";
  */
 export function ValidationPanel() {
   const parameters = useAppStore((s) => s.parameters);
-  const issues = useAppStore((s) => s.validationIssues());
+  const mapping = useAppStore((s) => s.mapping);
+  const childDS = useAppStore((s) => s.childDS);
+  const volunteerDS = useAppStore((s) => s.volunteerDS);
+  const wildcards = useAppStore((s) => s.wildcards);
   const addSynonym = useAppStore((s) => s.addSynonym);
   const runAutoMatch = useAppStore((s) => s.runAutoMatch);
 
+  const issues = useMemo(
+    () => validateDatasets(parameters, mapping, childDS, volunteerDS, wildcards),
+    [parameters, mapping, childDS, volunteerDS, wildcards],
+  );
   const grouped = useMemo(() => uniqueUnmappedByParam(issues), [issues]);
   const paramOptions = useMemo(
     () => Object.fromEntries(parameters.map((p) => [p.id, p])),
